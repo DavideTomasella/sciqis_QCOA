@@ -27,7 +27,7 @@ def reflectivity_ss_optical_cavity(omega, omega_in1, kappa, kappa_ext1, N=10):
         R = | ----------------------------------|     with <a> = expectation of the cavity field
             |             alpha_in              |
     ```
-    
+
     Parameters
     ----------
     omega : float
@@ -83,7 +83,7 @@ def transmissivity_ss_optical_cavity(omega, omega_in1, kappa, kappa_ext1, kappa_
     -------
     T : float or np.ndarray
         The transmissivity of the cavity.
-    """
+    """    
     alpha_in1 = 1
     alpha_out2 = np.zeros_like(omega_in1, np.complex128)
     for i,o_in in enumerate(omega_in1):
@@ -95,6 +95,11 @@ def transmissivity_ss_optical_cavity(omega, omega_in1, kappa, kappa_ext1, kappa_
 def get_steady_state_field_optical_cavity(omega, omega_in1, kappa, kappa_ext1, alpha_in, calculate_time_evolution=False, N=10):
     """
     Calculate the steady state solution cavity field for an optical cavity with a single standing wave given an input field alpha_in.
+    The cavity is described by the Hamiltonian in the rotating wave approximation and the Landbladian collapse operators:
+    ```
+    H = (omega-omega_in1)*a†a + 1j*sqrt(kappa_ext1)*alpha_in*(a†-a)
+    L = sqrt(kappa)*a
+    ```
 
     Parameters
     ----------
@@ -109,7 +114,8 @@ def get_steady_state_field_optical_cavity(omega, omega_in1, kappa, kappa_ext1, a
     alpha_in : complex
         The input field amplitude outside the cavity.
     calculate_time_evolution : bool, optional
-        Whether to calculate the time evolution of the cavity field. The default is False.
+        Whether to calculate the time evolution of the cavity field with mesolver() or 
+        the steady state solution with steadystate() from qutip library.
     N : int, optional
         The number of modes for the cavity field. The default is 10.
 
@@ -118,7 +124,6 @@ def get_steady_state_field_optical_cavity(omega, omega_in1, kappa, kappa_ext1, a
     a_ss : complex
         Return the steady state solution for the field inside the cavity
     """
-
     if kappa_ext1 > kappa:
         raise ValueError("The external coupling rate must be smaller than the total cavity decay rate.")
     if abs(alpha_in)**2 > N/2:
@@ -129,12 +134,12 @@ def get_steady_state_field_optical_cavity(omega, omega_in1, kappa, kappa_ext1, a
     num_a = a.dag()*a
 
     # Rotating wave approximation with the input field that correspond to the frequency we are probing
-    delta=omega-omega_in1
+    delta = omega-omega_in1
     free_evolution = delta*num_a
-    incoupling = 1j*np.sqrt(kappa_ext1)*alpha_in*(a.dag()-a)
+    incoupling_fields = 1j*np.sqrt(kappa_ext1)*alpha_in*(a.dag()-a)
     decay_channel_a = np.sqrt(kappa)*a
 
-    Hamiltonian = free_evolution + incoupling
+    Hamiltonian = free_evolution + incoupling_fields
     collapse_operators = [decay_channel_a]
 
     if calculate_time_evolution:
@@ -158,7 +163,7 @@ def get_steady_state_field_optical_cavity(omega, omega_in1, kappa, kappa_ext1, a
         a_ss = expect(a, rho_ss)
         num_a_ss = expect(num_a, rho_ss)
     print("Steady state cavity field: %.4e photons" % num_a_ss)
-    return a_ss
+    return a_ss #,num_a_ss
 
 
 if __name__=="__main__":

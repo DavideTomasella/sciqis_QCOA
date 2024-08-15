@@ -131,14 +131,15 @@ def cavity_ss_sideband(delta_s, kappa_ext1_s, kappa_s, alpha_in1_s, alpha_p, G_0
         i.e., I'm deriving the spectrum of the envelope of the cavity field.
         The analytical model is based on Kharel et al.'s  paper doi:10.1126/sciadv.aav0582.
         ```
-                   sqrt(kappa_in1_s) * alpha_in1_s  
-                ----------------------------------------------
-        <a_s> =                             G0 * |alpha_p|^2     with ∓ depending if it is stokes or anti-stokes sideband
-                 i*delta_s + kappa_s/2 ∓ ---------------------
-                                         i*delta_m + gamma_m/2
+                        sqrt(kappa_in1_s) * alpha_in1_s  
+                ------------------------------------------------
+        <a_s> =                             G0^2 * |alpha_p|^2    with ∓ depending if it is stokes or anti-stokes sideband
+                 i*delta_s + kappa_s/2 ∓ ----------------------
+                                          i*delta_m + gamma_m/2
         from the previous rotating wave approximation:
             delta_s = omega_s - omega_in1_s
-            delta_m = Omega_m ± (omega_p - omega_in1_s) depending if it is stokes or anti-stokes sideband                              
+            delta_m = Omega_m ± (omega_p - omega_in1_s) depending if it is stokes or anti-stokes sideband
+        thus the steady state for the input field with amplitude is simply alpha_in1_s
         ```
 
         Parameters
@@ -167,6 +168,7 @@ def cavity_ss_sideband(delta_s, kappa_ext1_s, kappa_s, alpha_in1_s, alpha_p, G_0
         alpha_s: (complex or np.ndarray)
             complex amplitude of the stokes field of the cavity
     """
+
     P = np.sqrt(kappa_ext1_s) / (\
             1j * delta_s + kappa_s / 2 +\
             (-1 if is_sideband_stokes else 1) * G_0 ** 2 * np.abs(alpha_p) ** 2 / (1j * delta_m + gamma_m / 2)\
