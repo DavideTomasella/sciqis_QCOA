@@ -49,7 +49,7 @@ def reflectivity_ss_sideband(omega_in1_s, kappa_ext1_s, omega_s, kappa_s, omega_
 
         Returns
         --------
-        reflectivity: (float)
+        reflectivity: (float or np.ndarray)
             reflectivity of the stokes field of the cavity
     """    
     alpha_in1_s = 1
@@ -102,7 +102,7 @@ def transmissivity_ss_sideband(omega_in1_s, kappa_ext1_s, kappa_ext2_s, omega_s,
         
         Returns
         -----
-        transmissivity: (float)
+        transmissivity: (float or np.ndarray)
             transmissivity of the stokes field of the cavity
     """
 
@@ -186,6 +186,8 @@ if __name__ == "__main__":
 
     plt.plot(omega_in1_s.T-omega_p, r.T, "--",label='Reflectivity')
     plt.plot(omega_in1_s.T-omega_p, t.T, label='Transmissivity')
+    plt.xlabel("Sideband relative frequency [GHz]")
+    plt.ylabel("Cavity response")
     plt.ylim(-0.1,2.1)
     plt.xticks(*get_axis_values(omega_in1_s.T-omega_p))
     plt.grid()
@@ -201,5 +203,7 @@ if __name__ == "__main__":
     plt.plot(omega_in1_s.T-omega_p, t.T, label='Transmissivity')
     plt.ylim(-0.1,2.1)
     plt.xticks(*get_axis_values(omega_in1_s.T-omega_p))
+    plt.xlabel("Sideband relative frequency [GHz]")
+    plt.ylabel("Cavity response")
     plt.grid()
     plt.show()
