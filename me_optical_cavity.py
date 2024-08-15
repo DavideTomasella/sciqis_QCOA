@@ -22,7 +22,12 @@ from numba import njit
 def reflectivity_ss_optical_cavity(omega, omega_in1, kappa, kappa_ext1, N=10):
     """
     Calculate the reflectivity spectrum of an optical cavity with the Master Equation Solver.
-
+    ```
+            | alpha_in - sqrt(kappa_ext1) * <a> |^2
+        R = | ----------------------------------|     with <a> = expectation of the cavity field
+            |             alpha_in              |
+    ```
+    
     Parameters
     ----------
     omega : float
@@ -51,6 +56,11 @@ def reflectivity_ss_optical_cavity(omega, omega_in1, kappa, kappa_ext1, N=10):
 def transmissivity_ss_optical_cavity(omega, omega_in1, kappa, kappa_ext1, kappa_ext2, N=10):
     """
     Calculate the transmissivity spectrum of an optical cavity with the Master Equation Solver.
+    ```
+            | sqrt(kappa_ext2) * <a> |^2
+        T = | -----------------------|     with <a> = expectation of the cavity field
+            |        alpha_in        |
+    ```
 
     Parameters
     ----------
@@ -128,16 +138,22 @@ def get_steady_state_field_optical_cavity(omega, omega_in1, kappa, kappa_ext1, a
     collapse_operators = [decay_channel_a]
 
     if calculate_time_evolution:
-        # time evolution
-        t = np.linspace(0, 1e-6, 1000)
+        # time evolution, the time array length considers the decay rate of the cavity to know when we reach the staedy state
+        t = np.linspace(0, 12/kappa, 120)
+        # init vacuum state
         rho_0 = tensor(basis(N,0))
+        # solve time evolution with master equation
         result = mesolve(Hamiltonian, rho_0, t, collapse_operators, [a,num_a])
         a_me, num_a_me = result.expect
-        plt.plot(t, num_a_me)
-        plt.show()
+        if False:
+            # You have to check that the time evolution is converging to the steady state
+            import matplotlib.pyplot as plt
+            plt.plot(t, num_a_me)
+            plt.show()
         a_ss = a_me[-1]
         num_a_ss = num_a_me[-1]
     else:
+        # calculate the steady state solution of the Lindbladian problem and the expectations
         rho_ss = steadystate(Hamiltonian, collapse_operators)
         a_ss = expect(a, rho_ss)
         num_a_ss = expect(num_a, rho_ss)
@@ -157,9 +173,11 @@ if __name__=="__main__":
     kappa_ext1 = 1e6
     kappa_ext2 = 1e6
     kappa = kappa_ext1 + kappa_ext2 + 1e6
-
+    from time import time
+    start = time()
     r=reflectivity_ss_optical_cavity(omega, omega_in1, kappa, kappa_ext1)
     t=transmissivity_ss_optical_cavity(omega, omega_in1, kappa, kappa_ext1, kappa_ext2)
+    print(time()-start)
 
     plt.plot(omega_in1.T-omega, r.T, "--",label='Reflectivity')
     plt.plot(omega_in1.T-omega, t.T, label='Transmissivity')

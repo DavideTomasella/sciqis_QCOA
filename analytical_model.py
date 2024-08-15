@@ -23,6 +23,11 @@ def reflectivity_ss_sideband(omega_in1_s, kappa_ext1_s, omega_s, kappa_s, omega_
         Given the steady state solution for the stokes cavity field cavity_ss_sideband(), we derive the reflectivity by calculating the output stokes field 
         alpha_out1_s=alpha_in1_s-sqrt(kappa_ext1_s)*cavity_ss_sideband(alpha_in1_s) (this is the total field outside the port 1 of the cavity!).
         The reflectivity is |alpha_out1_s/alpha_in1_s|^2.
+        ```
+                | alpha_in1_s - sqrt(kappa_ext1_s) * <a_s> |^2
+            R = | -----------------------------------------|     with <a_s> = expectation of the sideband cavity field
+                |                alpha_in1_s               |
+        ```
 
         Parameters
         ---------
@@ -74,6 +79,11 @@ def transmissivity_ss_sideband(omega_in1_s, kappa_ext1_s, kappa_ext2_s, omega_s,
         Given the steady state solution for the stokes cavity field cavity_ss_stokes(), we derive the transmissivity by calculating the output stokes field
         alpha_out2_s=sqrt(kappa_ext2_s)*cavity_ss_stokes(alpha_in1_s) (this is the total field outside the port 2 of the cavity!).
         The transmissivity is |alpha_out2_s/alpha_in1_s|^2.
+        ```
+                | sqrt(kappa_ext2_s) * <a_s> |^2
+            T = | ---------------------------|     with <a_s> = expectation of the sideband cavity field
+                |        alpha_in1_s         |
+        ```
 
         Parameters
         ----------
@@ -121,13 +131,15 @@ def cavity_ss_sideband(delta_s, kappa_ext1_s, kappa_s, alpha_in1_s, alpha_p, G_0
         i.e., I'm deriving the spectrum of the envelope of the cavity field.
         The analytical model is based on Kharel et al.'s  paper doi:10.1126/sciadv.aav0582.
         ```
-            |                               k2/2                   | ^ 2
-            |              --------------------------------------- |
-         R= | 1   -   A *                    -      N1 * g0^2      |
-            |              i(w-w0+D2) + k2/2 + ------------------- |
-            |                                   i(w-w0) + Gamma/2  |
+                   sqrt(kappa_in1_s) * alpha_in1_s  
+                ----------------------------------------------
+        <a_s> =                             G0 * |alpha_p|^2     with ∓ depending if it is stokes or anti-stokes sideband
+                 i*delta_s + kappa_s/2 ∓ ---------------------
+                                         i*delta_m + gamma_m/2
+        from the previous rotating wave approximation:
+            delta_s = omega_s - omega_in1_s
+            delta_m = Omega_m ± (omega_p - omega_in1_s) depending if it is stokes or anti-stokes sideband                              
         ```
-        The +- depends if it is stokes or anti-stokes sideband.
 
         Parameters
         -----------
