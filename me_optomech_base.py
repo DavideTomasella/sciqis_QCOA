@@ -114,6 +114,49 @@ def transmittivity_ss_sideband(omega_in1_s, kappa_ext1_s, kappa_ext2_s, omega_s,
 def get_steady_state_field_optomechanical_cavity(delta_s, kappa_ext1_s, kappa_s, alpha_in1_s, alpha_p, G_0, delta_m, gamma_m, 
                                                  is_sideband_stokes=True, N=10, N_m=10, calculate_time_evolution=True):
     """
+    Calculate the steady state field of an optomechanical cavity with the Master Equation Solver.
+    ```
+        H = delta_s * a.dag() * a + delta_m * b.dag() * b - G_0 * abs(alpha_p) * (a.dag() * b + a * b.dag()) + 1j * sqrt(kappa_ext1_s) * alpha_in1_s * (a.dag() - a)
+                                                            G_0 * abs(alpha_p) * (a.dag() * b.dag() + a * b)
+        L = [sqrt(kappa_s) * a, sqrt(gamma_m) * b]
+    ```
+    We are using the rotating wave approximation with the input field that correspond to the frequency we are probing
+    and for the mechanical mode corresponding to the difference between sideband and pump frequency.
+
+    Parameters
+    ----------
+    delta_s: float
+        detuning of the cavity stokes field [Hz]
+    kappa_ext1_s:
+        external loss rate of the cavity stokes field = coupling of stokes port 1 field inside the cavity [Hz]
+    kappa_s: float
+        total loss rate of the cavity stokes field [Hz]
+    alpha_in1_s: complex
+        complex amplitude of the stokes input field [sqrt(Hz)]
+        it is the "amplitude" of the travelling field derived from the input power in photon/s
+    alpha_p: complex
+        complex amplitude of the pump cavity field
+        This is a standing wave, so the amplitude is the sqrt of the number of photons in the cavity
+    G_0: float
+        single-photon optomechanical coupling strength [Hz]
+    delta_m: float
+        detuning of the mechanical cavity field [Hz]
+    gamma_m: float
+        total loss rate of the mechanical cavity field [Hz]
+    is_sideband_stokes : bool, optional
+        If True, the sideband is the stokes field, otherwise it is the anti-stokes field
+    N : int, optional
+        The number of modes for the cavity field. The default is 10.
+    N_m : int, optional
+        The number of modes for the mechanical field. The default is 10.
+    calculate_time_evolution : bool, optional
+        If True, the time evolution is calculated, otherwise the steady state is calculated. The default is True.
+        You can also display the Monte Carlo vs Master Equation time evolution.
+
+    Returns
+    -------
+    a_s: complex
+        complex amplitude of the stokes cavity field (steady state solution)
     """
 
     if kappa_ext1_s > kappa_s:

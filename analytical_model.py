@@ -184,7 +184,7 @@ if __name__ == "__main__":
     def get_axis_values(values, n=5):
         return np.linspace(min(values), max(values), n), ["%.4f"%(i/1e9) for i in np.linspace(min(values), max(values), n)]
     # Test the analytical model
-    is_sideband_stokes = True
+    is_sideband_stokes = False
     lambda_to_omega = lambda l: 2 * np.pi * 3e8 / l
     kappa_ext1_s = 1e6
     kappa_ext2_s = 1e6
@@ -209,7 +209,7 @@ if __name__ == "__main__":
     plt.grid()
     plt.show()
     
-    omega_s = omega_p + (-1 if is_sideband_stokes else 1) * 12.0008e9 #+ np.linspace(-6e6, 6e6, 10).reshape(-1,1)
+    omega_s = omega_p + (-1 if is_sideband_stokes else 1) * 12.0008e9 + np.linspace(-6e6, 6e6, 10).reshape(-1,1)
     alpha_p = 7e3*(1 if is_sideband_stokes else 3) #* np.linspace(0,1.2,6).reshape(-1,1)
 
     r=reflectivity_ss_sideband(omega_in1_s, kappa_ext1_s, omega_s, kappa_s, omega_p, alpha_p, G_0, Omega_m, gamma_m, is_sideband_stokes)
