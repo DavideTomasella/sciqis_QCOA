@@ -59,9 +59,11 @@ def reflectivity_ss_sideband(omega_in1_s, kappa_ext1_s, omega_s, kappa_s, omega_
     """    
     alpha_in1_s = 1
     alpha_out1_s = alpha_in1_s - np.sqrt(kappa_ext1_s)  * cavity_ss_sideband(omega_s-omega_in1_s, kappa_ext1_s, kappa_s, alpha_in1_s, alpha_p, G_0, 
-                                                                             Omega_m-(1 if is_sideband_stokes else -1)*(omega_p-omega_in1_s), gamma_m, is_sideband_stokes)
+                                                                             Omega_m-(1 if is_sideband_stokes else -1)*(omega_p-omega_in1_s), gamma_m,
+                                                                             is_sideband_stokes)
     
     return np.abs(alpha_out1_s/alpha_in1_s) ** 2
+
 
 def transmissivity_ss_sideband(omega_in1_s, kappa_ext1_s, kappa_ext2_s, omega_s, kappa_s, omega_p, alpha_p, G_0, Omega_m, gamma_m, is_sideband_stokes=True):
     """
@@ -118,11 +120,11 @@ def transmissivity_ss_sideband(omega_in1_s, kappa_ext1_s, kappa_ext2_s, omega_s,
 
     alpha_in1_s = 1
     alpha_out2_s = np.sqrt(kappa_ext2_s) * cavity_ss_sideband(omega_s-omega_in1_s, kappa_ext1_s, kappa_s, alpha_in1_s, alpha_p, G_0, 
-                                                              Omega_m-(1 if is_sideband_stokes else -1)*(omega_p-omega_in1_s), gamma_m, is_sideband_stokes)
+                                                              Omega_m-(1 if is_sideband_stokes else -1)*(omega_p-omega_in1_s), gamma_m,
+                                                              is_sideband_stokes)
     
     return np.abs(alpha_out2_s/alpha_in1_s) ** 2
 
-np.reshape
 
 def cavity_ss_sideband(delta_s, kappa_ext1_s, kappa_s, alpha_in1_s, alpha_p, G_0, delta_m, gamma_m, is_sideband_stokes=True):
     """
@@ -138,7 +140,7 @@ def cavity_ss_sideband(delta_s, kappa_ext1_s, kappa_s, alpha_in1_s, alpha_p, G_0
                                           i*delta_m + gamma_m/2
         from the previous rotating wave approximation:
             delta_s = omega_s - omega_in1_s
-            delta_m = Omega_m ± (omega_p - omega_in1_s) depending if it is stokes or anti-stokes sideband
+            delta_m = Omega_m ∓ (omega_p - omega_in1_s) depending if it is stokes or anti-stokes sideband
         thus the steady state for the input field with amplitude is simply alpha_in1_s
         ```
 
@@ -207,7 +209,7 @@ if __name__ == "__main__":
     plt.grid()
     plt.show()
     
-    omega_s = omega_p + (-1 if is_sideband_stokes else 1) * 12.0008e9 + np.linspace(-6e6, 6e6, 10).reshape(-1,1)
+    omega_s = omega_p + (-1 if is_sideband_stokes else 1) * 12.0008e9 #+ np.linspace(-6e6, 6e6, 10).reshape(-1,1)
     alpha_p = 7e3*(1 if is_sideband_stokes else 3) #* np.linspace(0,1.2,6).reshape(-1,1)
 
     r=reflectivity_ss_sideband(omega_in1_s, kappa_ext1_s, omega_s, kappa_s, omega_p, alpha_p, G_0, Omega_m, gamma_m, is_sideband_stokes)

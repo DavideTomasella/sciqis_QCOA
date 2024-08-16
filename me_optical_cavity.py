@@ -6,7 +6,6 @@ Author: D. Tomasella
 # In[]
 import numpy as np
 from qutip import *
-from numba import njit
 
 # still using:
 # resonant pump
@@ -53,6 +52,7 @@ def reflectivity_ss_optical_cavity(omega, omega_in1, kappa, kappa_ext1, N=10):
     
     return np.abs(alpha_out1/alpha_in1) ** 2
 
+
 def transmissivity_ss_optical_cavity(omega, omega_in1, kappa, kappa_ext1, kappa_ext2, N=10):
     """
     Calculate the transmissivity spectrum of an optical cavity with the Master Equation Solver.
@@ -92,7 +92,8 @@ def transmissivity_ss_optical_cavity(omega, omega_in1, kappa, kappa_ext1, kappa_
     return np.abs(alpha_out2/alpha_in1) ** 2
 
 
-def get_steady_state_field_optical_cavity(omega, omega_in1, kappa, kappa_ext1, alpha_in, calculate_time_evolution=False, N=10):
+def get_steady_state_field_optical_cavity(omega, omega_in1, kappa, kappa_ext1, alpha_in, 
+                                          N=10, calculate_time_evolution=False):
     """
     Calculate the steady state solution cavity field for an optical cavity with a single standing wave given an input field alpha_in.
     The cavity is described by the Hamiltonian in the rotating wave approximation and the Landbladian collapse operators:
