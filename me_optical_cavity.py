@@ -45,10 +45,11 @@ def reflectivity_ss_optical_cavity(omega, omega_in1, kappa, kappa_ext1, N=10):
     R : float or np.ndarray
         The reflectivity of the cavity.
     """
-    alpha_in1 = 1
+    alpha_in1 = np.sqrt(kappa_ext1)
     alpha_out1 = np.zeros_like(omega_in1, np.complex128)
     for i,o_in in enumerate(omega_in1):
-        alpha_out1[i] = alpha_in1 - np.sqrt(kappa_ext1) * get_steady_state_field_optical_cavity(omega, o_in, kappa, kappa_ext1, alpha_in1, N=N)
+        alpha_out1[i] = alpha_in1 - np.sqrt(kappa_ext1) * get_steady_state_field_optical_cavity(omega, o_in, kappa, kappa_ext1, alpha_in1, N=N,
+                                                                                                calculate_time_evolution=True)
     
     return np.abs(alpha_out1/alpha_in1) ** 2
 
@@ -84,16 +85,17 @@ def transmissivity_ss_optical_cavity(omega, omega_in1, kappa, kappa_ext1, kappa_
     T : float or np.ndarray
         The transmissivity of the cavity.
     """    
-    alpha_in1 = 1
+    alpha_in1 = np.sqrt(kappa_ext1)
     alpha_out2 = np.zeros_like(omega_in1, np.complex128)
     for i,o_in in enumerate(omega_in1):
-        alpha_out2[i] = np.sqrt(kappa_ext2) * get_steady_state_field_optical_cavity(omega, o_in, kappa, kappa_ext1, alpha_in1, N=N)
+        alpha_out2[i] = np.sqrt(kappa_ext2) * get_steady_state_field_optical_cavity(omega, o_in, kappa, kappa_ext1, alpha_in1, 
+                                                                                    N=N, calculate_time_evolution=False)
     
     return np.abs(alpha_out2/alpha_in1) ** 2
 
 
 def get_steady_state_field_optical_cavity(omega, omega_in1, kappa, kappa_ext1, alpha_in, 
-                                          N=10, calculate_time_evolution=False):
+                                          N=10, calculate_time_evolution=True):
     """
     Calculate the steady state solution cavity field for an optical cavity with a single standing wave given an input field alpha_in.
     The cavity is described by the Hamiltonian in the rotating wave approximation and the Landbladian collapse operators:
@@ -127,7 +129,7 @@ def get_steady_state_field_optical_cavity(omega, omega_in1, kappa, kappa_ext1, a
     """
     if kappa_ext1 > kappa:
         raise ValueError("The external coupling rate must be smaller than the total cavity decay rate.")
-    if abs(alpha_in)**2 > N/2:
+    if abs(alpha_in)**2/kappa > N/2:
         raise ValueError("Warning: The input field is too large for the given Hilbert space dimension.")
 
     # init fields
@@ -145,16 +147,19 @@ def get_steady_state_field_optical_cavity(omega, omega_in1, kappa, kappa_ext1, a
 
     if calculate_time_evolution:
         # time evolution, the time array length considers the decay rate of the cavity to know when we reach the staedy state
-        t = np.linspace(0, 12/kappa, 120)
+        t = np.linspace(0, 15/kappa, 120)
         # init vacuum state
         rho_0 = tensor(basis(N,0))
         # solve time evolution with master equation
         result = mesolve(Hamiltonian, rho_0, t, collapse_operators, [a,num_a])
         a_me, num_a_me = result.expect
         if False:
+            result_mc = mcsolve(Hamiltonian, rho_0, t, collapse_operators, [a,num_a], ntraj=5)
+            a_mc, num_a_mc = result_mc.expect
             # You have to check that the time evolution is converging to the steady state
             import matplotlib.pyplot as plt
             plt.plot(t, num_a_me)
+            plt.plot(t, num_a_mc)
             plt.show()
         a_ss = a_me[-1]
         num_a_ss = num_a_me[-1]
@@ -181,8 +186,8 @@ if __name__=="__main__":
     kappa = kappa_ext1 + kappa_ext2 + 1e6
     from time import time
     start = time()
-    r=reflectivity_ss_optical_cavity(omega, omega_in1, kappa, kappa_ext1)
-    t=transmissivity_ss_optical_cavity(omega, omega_in1, kappa, kappa_ext1, kappa_ext2)
+    r=reflectivity_ss_optical_cavity(omega, omega_in1, kappa, kappa_ext1, N=5)
+    t=transmissivity_ss_optical_cavity(omega, omega_in1, kappa, kappa_ext1, kappa_ext2, N=5)
     print(time()-start)
 
     plt.plot(omega_in1.T-omega, r.T, "--",label='Reflectivity')
