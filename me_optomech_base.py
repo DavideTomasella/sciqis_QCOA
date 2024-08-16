@@ -52,7 +52,7 @@ def reflectivity_ss_sideband(omega_in1_s, kappa_ext1_s, omega_s, kappa_s, omega_
     alpha_out1_s = np.zeros_like(omega_in1_s, np.complex128)
     for i,o_in in enumerate(omega_in1_s):
         alpha_out1_s[i] = alpha_in1_s - np.sqrt(kappa_ext1_s) * get_steady_state_field_optomechanical_cavity(omega_s-o_in, kappa_ext1_s, kappa_s, alpha_in1_s, alpha_p, G_0, 
-                                                                                                             (omega_p-o_in)-(1 if is_sideband_stokes else -1)*Omega_m, gamma_m,
+                                                                                                             (omega_p-o_in)+(-1 if is_sideband_stokes else 1)*Omega_m, gamma_m,
                                                                                                              is_sideband_stokes, N=N, N_m=N_m, calculate_time_evolution=True)
 
     return np.abs(alpha_out1_s/alpha_in1_s) ** 2
@@ -105,7 +105,7 @@ def transmittivity_ss_sideband(omega_in1_s, kappa_ext1_s, kappa_ext2_s, omega_s,
     alpha_out1_s = np.zeros_like(omega_in1_s, np.complex128)
     for i,o_in in enumerate(omega_in1_s):
         alpha_out1_s[i] = np.sqrt(kappa_ext2_s) * get_steady_state_field_optomechanical_cavity(omega_s-o_in, kappa_ext1_s, kappa_s, alpha_in1_s, alpha_p, G_0, 
-                                                                                               (omega_p-o_in)-(1 if is_sideband_stokes else -1)*Omega_m, gamma_m,
+                                                                                               (omega_p-o_in)+(-1 if is_sideband_stokes else 1)*Omega_m, gamma_m,
                                                                                                is_sideband_stokes, N=N, N_m=N_m, calculate_time_evolution=True)
 
     return np.abs(alpha_out1_s/alpha_in1_s) ** 2
@@ -228,7 +228,7 @@ if __name__=="__main__":
     def get_axis_values(values, n=5):
         return np.linspace(min(values), max(values), n), ["%.4f"%(i/1e9) for i in np.linspace(min(values), max(values), n)]
     # Test the analytical model
-    is_sideband_stokes = False
+    is_sideband_stokes = True
     lambda_to_omega = lambda l: 2 * np.pi * 3e8 / l
     kappa_ext1_s = 1e6
     kappa_ext2_s = 1e6

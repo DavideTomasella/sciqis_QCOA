@@ -17,8 +17,7 @@ def reflectivity_ss_sideband(omega_in1_s, kappa_ext1_s, omega_s, kappa_s, omega_
         - The rotation frequency of the input stokes field is omega_in1_s-omega_in1_s=0 (probe) (rotating wave approximation)
         - The rotation frequency of the stokes cavity field is omega_s-omega_in1_s
         - The rotation frequency of the pump field is omega_p-omega_in1_s but we don't care (classical field approximation)
-        - The rotation frequency of the mechanical field is Omega_m-(omega_p-omega_in1_s) when we are considering the stokes sideband and 
-            Omega_m+(omega_p-omega_in1_s) when we are considering the anti-stokes sideband.
+        - The rotation frequency of the mechanical field is (omega_p-omega_in1_s)∓Omega_m when we are considering the stokes and antis-stokes sideband.
         
         Given the steady state solution for the stokes cavity field cavity_ss_sideband(), we derive the reflectivity by calculating the output stokes field 
         alpha_out1_s=alpha_in1_s-sqrt(kappa_ext1_s)*cavity_ss_sideband(alpha_in1_s) (this is the total field outside the port 1 of the cavity!).
@@ -59,7 +58,7 @@ def reflectivity_ss_sideband(omega_in1_s, kappa_ext1_s, omega_s, kappa_s, omega_
     """    
     alpha_in1_s = 1
     alpha_out1_s = alpha_in1_s - np.sqrt(kappa_ext1_s)  * cavity_ss_sideband(omega_s-omega_in1_s, kappa_ext1_s, kappa_s, alpha_in1_s, alpha_p, G_0, 
-                                                                             Omega_m-(1 if is_sideband_stokes else -1)*(omega_p-omega_in1_s), gamma_m,
+                                                                             (omega_p-omega_in1_s)+(-1 if is_sideband_stokes else 1)*Omega_m, gamma_m,
                                                                              is_sideband_stokes)
     
     return np.abs(alpha_out1_s/alpha_in1_s) ** 2
@@ -75,8 +74,7 @@ def transmissivity_ss_sideband(omega_in1_s, kappa_ext1_s, kappa_ext2_s, omega_s,
         - The rotation frequency of the input stokes field is omega_in1_s-omega_in1_s=0 (probe) (rotating wave approximation)
         - The rotation frequency of the stokes cavity field is omega_s-omega_in1_s
         - The rotation frequency of the pump field is omega_p-omega_in1_s but we don't care (classical field approximation)
-        - The rotation frequency of the mechanical field is Omega_m-(omega_p-omega_in1_s) when we are considering the stokes sideband and 
-            Omega_m+(omega_p-omega_in1_s) when we are considering the anti-stokes sideband.
+        - The rotation frequency of the mechanical field is (omega_p-omega_in1_s)∓Omega_m when we are considering the stokes and antis-stokes sideband.
 
         Given the steady state solution for the stokes cavity field cavity_ss_stokes(), we derive the transmissivity by calculating the output stokes field
         alpha_out2_s=sqrt(kappa_ext2_s)*cavity_ss_stokes(alpha_in1_s) (this is the total field outside the port 2 of the cavity!).
@@ -120,7 +118,7 @@ def transmissivity_ss_sideband(omega_in1_s, kappa_ext1_s, kappa_ext2_s, omega_s,
 
     alpha_in1_s = 1
     alpha_out2_s = np.sqrt(kappa_ext2_s) * cavity_ss_sideband(omega_s-omega_in1_s, kappa_ext1_s, kappa_s, alpha_in1_s, alpha_p, G_0, 
-                                                              Omega_m-(1 if is_sideband_stokes else -1)*(omega_p-omega_in1_s), gamma_m,
+                                                              (omega_p-omega_in1_s)+(-1 if is_sideband_stokes else 1)*Omega_m, gamma_m,
                                                               is_sideband_stokes)
     
     return np.abs(alpha_out2_s/alpha_in1_s) ** 2
@@ -134,13 +132,13 @@ def cavity_ss_sideband(delta_s, kappa_ext1_s, kappa_s, alpha_in1_s, alpha_p, G_0
         The analytical model is based on Kharel et al.'s  paper doi:10.1126/sciadv.aav0582.
         ```
                         sqrt(kappa_in1_s) * alpha_in1_s  
-                ------------------------------------------------
-        <a_s> =                             G0^2 * |alpha_p|^2    with ∓ depending if it is stokes or anti-stokes sideband
-                 i*delta_s + kappa_s/2 ∓ ----------------------
-                                          i*delta_m + gamma_m/2
+                -------------------------------------------------
+        <a_s> =                             G0^2 * |alpha_p|^2     with ∓ depending if it is stokes or anti-stokes sideband
+                 i*delta_s + kappa_s/2 + -----------------------
+                                          i*delta_m ∓ gamma_m/2
         from the previous rotating wave approximation:
             delta_s = omega_s - omega_in1_s
-            delta_m = Omega_m ∓ (omega_p - omega_in1_s) depending if it is stokes or anti-stokes sideband
+            delta_m = (omega_p - omega_in1_s) ∓ Omega_m depending if it is stokes or anti-stokes sideband
         thus the steady state for the input field with amplitude is simply alpha_in1_s
         ```
 
@@ -173,7 +171,7 @@ def cavity_ss_sideband(delta_s, kappa_ext1_s, kappa_s, alpha_in1_s, alpha_p, G_0
 
     P = np.sqrt(kappa_ext1_s) / (\
             1j * delta_s + kappa_s / 2 +\
-            (-1 if is_sideband_stokes else 1) * G_0 ** 2 * np.abs(alpha_p) ** 2 / (1j * delta_m + gamma_m / 2)\
+            G_0 ** 2 * np.abs(alpha_p) ** 2 / (1j * delta_m + (-1 if is_sideband_stokes else 1) *gamma_m / 2)\
         ) * alpha_in1_s
     
     return P
@@ -184,7 +182,7 @@ if __name__ == "__main__":
     def get_axis_values(values, n=5):
         return np.linspace(min(values), max(values), n), ["%.4f"%(i/1e9) for i in np.linspace(min(values), max(values), n)]
     # Test the analytical model
-    is_sideband_stokes = False
+    is_sideband_stokes = True
     lambda_to_omega = lambda l: 2 * np.pi * 3e8 / l
     kappa_ext1_s = 1e6
     kappa_ext2_s = 1e6
