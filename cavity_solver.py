@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 from typing import Union
 
-class CavitySolver(ABC):
+class BaseCavitySolver(ABC):
 
     def __init__(self):
         self.__configured = False
@@ -18,6 +18,7 @@ class CavitySolver(ABC):
         self.kappa_ext2_s = kwargs.get("kappa_ext2_s", 1)
         self.kappa_s = kwargs.get("kappa_s", self.kappa_ext1_s + self.kappa_ext2_s + 1)
         self.alpha_in1_s = 1
+        self.__configured = True
 
     @abstractmethod
     def __calculate_cavity_field(self) -> Union[float, np.ndarray]:

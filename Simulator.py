@@ -8,18 +8,18 @@ from qtpy import QtCore
 from qtpy.QtCore import Slot
 from qtpy.QtCore import QObject
 from qtpy import QtWidgets
-from SimulatorUI_autogen import Ui_Simulator
+from simulator_UI_autogen import Ui_Simulator
 from qtpy import uic
 import pyqtgraph as pg
 from pyqtgraph.exporters import ImageExporter, CSVExporter
 import numpy as np
-from CavitySolver import CavitySolver
+from cavity_solver import BaseCavitySolver
 import re
 import json
 
 #ifdef
 _use_autogen=False
-from SimulatorUI_autogen import Ui_Simulator
+from simulator_UI_autogen import Ui_Simulator
 
 class Simulator_MainWindow_Autogen(QtWidgets.QMainWindow,Ui_Simulator):
     """
@@ -29,7 +29,7 @@ class Simulator_MainWindow_Autogen(QtWidgets.QMainWindow,Ui_Simulator):
     
     To generate the gui from the .ui file:
      - move to the directory where the .ui file is located
-     - execute the command: pyuic5 SimulatorUI.ui -o SimulatorUI_autogen.py
+     - execute the command: pyuic5 simulator_UI.ui -o simulator_UI_autogen.py
     """
 
     def __init__(self):
@@ -48,7 +48,7 @@ class Simulator_MainWindow(QtWidgets.QMainWindow):
         # Load it
         super(Simulator_MainWindow,self).__init__()
         # Load the UI
-        uic.loadUi('./SimulatorUI.ui', self)
+        uic.loadUi('./simulator_UI.ui', self)
 
 
 class Simulator(QObject):
@@ -62,7 +62,7 @@ class Simulator(QObject):
         super().__init__(**kwargs)
         # self._mw = MainWindow()
 
-        self._cavitySolver : CavitySolver = None
+        self._cavitySolver : BaseCavitySolver = None
     
     def show(self):
         self._mw.show()
@@ -128,7 +128,7 @@ class Simulator(QObject):
         self._mw.F_file_name.setText("Simulation")
         self._mw.C_use_optical.setChecked(True)
         self._mw.C_use_mech.setChecked(True)
-        #self._mw.RUN_save_button.setEnabled(False)
+        self._mw.RUN_save_button.setEnabled(False)
         
         return
 
@@ -289,9 +289,9 @@ class Simulator(QObject):
         self.update_plot(data, isTimeEvolution)
         self.enable_interface(True)
 
-    def get_and_configure_solver_from_config(self) -> tuple[CavitySolver, bool]:
+    def get_and_configure_solver_from_config(self) -> tuple[BaseCavitySolver, bool]:
         """ Create the solver object and configure it according to the GUI configuration """
-        solver = CavitySolver()
+        solver = BaseCavitySolver()
         # TODO
         isTimeEvolution = self._mw.C_use_time_evolution.isChecked()
         return solver, isTimeEvolution
