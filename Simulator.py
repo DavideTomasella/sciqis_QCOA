@@ -13,9 +13,10 @@ from qtpy import uic
 import pyqtgraph as pg
 from pyqtgraph.exporters import ImageExporter, CSVExporter
 import numpy as np
-from cavity_solver import BaseCavitySolver
 import re
 import json
+from cavity_solver import BaseCavitySolver
+from analytical_cavity_solver import AnalyticalCavitySolver
 
 _use_autogen = False
 from simulator_UI_autogen import Ui_Simulator
@@ -235,19 +236,56 @@ class Simulator(QObject):
         self.enable_interface(False)
         print('Start simulation')
         self._cavitySolver, self._config_last_run = self.get_and_configure_solver_from_ui()
-        if self._config_last_run["useTimeEvolution"]:
+        if self._config_last_run["use_time_evolution"]:
             data = self._cavitySolver.solve_cavity_time_evolution()
         else:
             data = self._cavitySolver.solve_cavity_RT()
-        self.update_plot(data, self._config_last_run["useTimeEvolution"])
+        self.update_plot(data, self._config_last_run["use_time_evolution"])
         self.enable_interface(True)
 
     def get_and_configure_solver_from_ui(self) -> tuple[BaseCavitySolver, bool]:
         """ Create the solver object and configure it according to the GUI configuration """
-        solver = BaseCavitySolver()
         config = {}
-        # TODO
-        config["useTimeEvolution"] = self._mw.C_use_time_evolution.isChecked()
+        config["use_optical_mode"] = self._mw.C_use_optical.isChecked()
+        config["use_mechanical_mode"] = self._mw.C_use_mech.isChecked()
+        config["use_quantum_bath"] = self._mw.C_use_bath.isChecked()
+        config["use_time_evolution"] = self._mw.C_use_time_evolution.isChecked()
+        config["is_sideband_stokes"] = self._mw.T_sideband_select.value() == 0
+        config["is_solver_quantum"] = self._mw.T_model_select.value() == 1
+
+        # construct the solver
+        solver : BaseCavitySolver = None
+        if config["is_solver_quantum"]:
+            if config["use_mechanical_mode"]:
+                config["solver"] = "quantum_optomechanical_cavity"
+                solver = QuantumOptomechanicalCavitySolver()
+            else:
+                config["solver"] = "quantum_optical_cavity"
+                solver = QuantumOpticalCavitySolver()
+        else:
+            config["solver"] = "classical_cavity"
+            solver = AnalyticalCavitySolver()
+        # configure the solver
+        solver.configure(is_sideband_stokes=config["is_sideband_stokes"],
+                         #isQuantum=config["is_solver_quantum"],
+                         omega_p=3e8/self._mw.C_omega_p_nm.value(),                         
+                         kappa_ext1_s=self._mw.C_kappa_ext_1_MHz.value()*1e6,
+                         kappa_ext2_s=self._mw.C_kappa_ext_1_MHz.value()*1e6,
+                         kappa_s=self._mw.C_kappa_0_MHz.value()*1e6,
+                         Omega_m=self._mw.C_Omega_m_GHz.value()*1e9,
+                         gamma_m=self._mw.C_gamma_MHz.value()*1e6,
+                         G0=self._mw.C_G0_Hz.value()*config["use_mechanical_mode"],
+                         alpha_p=np.sqrt(self._mw.C_n_p.value()),
+                         FSR_s=self._mw.C_FSR_GHz.value()*1e9,
+                         FSR_s_0=self._mw.C_f_start_MHz.value()*1e6,
+                         FSR_s_1=self._mw.C_f_stop_MHz.value()*1e6,
+                         alpha_p_0=np.sqrt(self._mw.C_P_start_n.value()),
+                         alpha_p_1=np.sqrt(self._mw.C_P_stop_n.value()),
+                         bath_T=self._mw.C_bath_K.value())
+        config["solver_params"] = solver.get_current_configuration()
+        if config["use_time_evolution"]:
+            self._mw.C_time_ms.setText("%.3f"%(config["solver_params"]["max_t_evolution"]*1e3))
+
         return solver, config
     
     def enable_interface(self, enable=True):
@@ -293,7 +331,7 @@ class Simulator(QObject):
         data : np.ndarray
             The data to be plotted. It can be a 1D array for the reflectivity/transmissivity or a 2D array for the time evolution
         """
-        if self._config_last_run["useTimeEvolution"]:
+        if self._config_last_run["use_time_evolution"]:
             # TODO define 3d data, maybe we have to keep 2 elements (_plot_curve and ...) and work with the visibility / remove them when needed
             pass
         else:
@@ -304,7 +342,7 @@ class Simulator(QObject):
     def set_plot_axis(self):
         """ Set the axis label for the plot """
         self._plot_curve.getViewBox().updateAutoRange()
-        if self._config_last_run["useTimeEvolution"]:
+        if self._config_last_run["use_time_evolution"]:
             # TODO define 3d axis
             self._mw.plotwindow.setLabel(axis='bottom', text='Time', units='s',pen='k')
             self._mw.plotwindow.setLabel(axis='left', text='Photon/Phonon population', units='1',pen='k')
@@ -321,7 +359,8 @@ class Simulator(QObject):
         # save the configuration in a json file
         if self._config_last_run is not None:
             config = self._config_last_run
-            config["solver"] = self._cavitySolver.get_current_configuration()
+            # TODO decide if the current configuration can be changed during the run
+            config["solver_params"] = self._cavitySolver.get_current_configuration()
             with open(filepath+"_config.json", 'w') as f:
                 json.dump(config, f, indent=2)
         plot = self._mw.plotwindow.getPlotItem()

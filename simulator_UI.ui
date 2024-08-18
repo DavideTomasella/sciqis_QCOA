@@ -91,7 +91,7 @@
            </size>
           </property>
           <property name="currentIndex">
-           <number>0</number>
+           <number>1</number>
           </property>
           <widget class="QWidget" name="tab">
            <attribute name="title">
@@ -671,7 +671,7 @@
                 </widget>
                </item>
                <item>
-                <widget class="QLabel" name="C_FSR_GHz_lbl_2">
+                <widget class="QLabel" name="C_n_p_lbl">
                  <property name="minimumSize">
                   <size>
                    <width>200</width>
@@ -695,7 +695,7 @@
                 </widget>
                </item>
                <item>
-                <widget class="QDoubleSpinBox" name="C_FSR_GHz_2">
+                <widget class="QDoubleSpinBox" name="C_n_p">
                  <property name="sizePolicy">
                   <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                    <horstretch>0</horstretch>

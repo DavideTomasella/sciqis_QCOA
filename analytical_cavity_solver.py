@@ -1,16 +1,15 @@
 """
-Abstract class for cavity solvers
+Analytical model for cavity solvers
 """
-from abc import ABC, abstractmethod
+from cavity_solver import BaseCavitySolver
 import numpy as np
 from typing import Union
 
-class BaseCavitySolver(ABC):
+class AnalyticalCavitySolver(BaseCavitySolver):
 
     def __init__(self):
         self.__configured = False
 
-    @abstractmethod
     def configure(self, **kwargs):
         """ configure all the solver parameters before running the simulation"""
         # TODO decide if we need parameters as "use time evolution"
@@ -20,12 +19,10 @@ class BaseCavitySolver(ABC):
         self.alpha_in1_s = 1
         self.__configured = True
 
-    @abstractmethod
     def __calculate_cavity_field(self) -> Union[float, np.ndarray]:
         """ Get the cavity standing wave field from the cavity paramters and the model"""
         return 0
     
-    @abstractmethod
     def __calculate_time_evolution(self) -> tuple[Union[float, np.ndarray], Union[float, np.ndarray]]:
         """ Get the cavity field time evolution from the cavity paramters and the model"""
         return 0, 0
@@ -60,24 +57,12 @@ class BaseCavitySolver(ABC):
             In the case of scanning the input field frequency, this is a 1D array.
             If we are scanning some parameter (e.g, the cavity FSR or the pump power), this is a 2D array.
         """
-        if not self.__configured:
-            raise Exception("Solver not configured")
-        
-        a_s = self.__calculate_cavity_field()
-        alpha_out1_s = self.alpha_in1_s - np.sqrt(self.kappa_ext1_s) * a_s
-        alpha_out2_s = np.sqrt(self.kappa_ext2_s) * a_s
-        R = np.abs(alpha_out1_s/self.alpha_in1_s) ** 2
-        T = np.abs(alpha_out2_s/self.alpha_in1_s) ** 2
-        return R, T
+        return super().solve_cavity_RT()
     
     def solve_cavity_time_evolution(self) -> tuple[Union[float, np.ndarray], Union[float, np.ndarray]]:
         """ Solve the cavity steady state solution while calculating the time evolution of the cavity field"""
-        if not self.__configured:
-            raise Exception("Solver not configured")
-        a_s, b_s = self.__calculate_time_evolution()
-        return a_s, b_s
+        return super().solve_cavity_time_evolution()
     
-    @abstractmethod
     def get_current_configuration(self):
         """ Get the current configuration of the solver"""
         config = {
