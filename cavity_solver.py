@@ -70,7 +70,7 @@ class BaseCavitySolver(ABC):
         T = np.abs(alpha_out2_s/self.alpha_in1_s) ** 2
         return R, T
     
-    def solve_cavity_time_evolution(self)-> tuple[Union[float, np.ndarray], Union[float, np.ndarray]]:
+    def solve_cavity_time_evolution(self) -> tuple[Union[float, np.ndarray], Union[float, np.ndarray]]:
         """ Solve the cavity steady state solution while calculating the time evolution of the cavity field"""
         if not self.__configured:
             raise Exception("Solver not configured")

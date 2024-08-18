@@ -17,8 +17,7 @@ from cavity_solver import BaseCavitySolver
 import re
 import json
 
-#ifdef
-_use_autogen=False
+_use_autogen = False
 from simulator_UI_autogen import Ui_Simulator
 
 class Simulator_MainWindow_Autogen(QtWidgets.QMainWindow,Ui_Simulator):
@@ -33,9 +32,9 @@ class Simulator_MainWindow_Autogen(QtWidgets.QMainWindow,Ui_Simulator):
     """
 
     def __init__(self):
-        # Load it
+        # Init autogen class
         super(Simulator_MainWindow_Autogen,self).__init__()
-
+        # Load the UI
         self.setupUi(self)
 
 class Simulator_MainWindow(QtWidgets.QMainWindow):
@@ -45,8 +44,7 @@ class Simulator_MainWindow(QtWidgets.QMainWindow):
     """
 
     def __init__(self):
-        # Load it
-        super(Simulator_MainWindow,self).__init__()
+        super().__init__()
         # Load the UI
         uic.loadUi('./simulator_UI.ui', self)
 
@@ -56,17 +54,14 @@ class Simulator(QObject):
     This is the GUI Class for creating the grafical interface
     """
 
-    # declare connectors
-
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         # self._mw = MainWindow()
 
         self._cavitySolver : BaseCavitySolver = None
+        self._config_last_run : dict = None
+        self._mw = None
     
-    def show(self):
-        self._mw.show()
-
     def on_activate(self):
         """ 
         Activate the GUI and show the main window that is part of the Simulator class.
@@ -82,7 +77,7 @@ class Simulator(QObject):
         self.init_plot()
 
         # show window
-        self._mw.show()
+        self.show()
 
     def on_deactivate(self):
         """
@@ -94,11 +89,15 @@ class Simulator(QObject):
         self._mw.close()
         return
 
+    def show(self):
+        """ Show the ui """
+        self._mw.show()
+
     def init_GUI_elements(self):
         """ Configure the GUI window with dynamical elements and connect the signals to the slots"""
 
         # NOTE: GUI input settings (min, max, default, ...) are set in the .ui file
-        # Here we set only the  text values since they may be customized later
+        # Here we define the connectors and we initialize the "conditional" elements
 
         # Connect signals to slots
         # file and folder selection
@@ -137,7 +136,6 @@ class Simulator(QObject):
         self._plot_curve : pg.GraphicsObject = pg.PlotDataItem() # TODO maybe different elements for 3d...
         self._mw.plotwindow.addItem(self._plot_curve)
         self.update_plot()
-        return
     
 
     @Slot()
@@ -230,17 +228,102 @@ class Simulator(QObject):
         # check if the file name is valid
         if not re.match(r'^[a-zA-Z0-9_]+$', self._mw.F_file_name.text()):
             self._mw.F_file_name.setText("Simulation")
-        
+            
+    @Slot()
+    def onClk_start_simulation(self):
+        """ Start the simulation using the current configuration """
+        self.enable_interface(False)
+        print('Start simulation')
+        self._cavitySolver, self._config_last_run = self.get_and_configure_solver_from_ui()
+        if self._config_last_run["useTimeEvolution"]:
+            data = self._cavitySolver.solve_cavity_time_evolution()
+        else:
+            data = self._cavitySolver.solve_cavity_RT()
+        self.update_plot(data, self._config_last_run["useTimeEvolution"])
+        self.enable_interface(True)
+
+    def get_and_configure_solver_from_ui(self) -> tuple[BaseCavitySolver, bool]:
+        """ Create the solver object and configure it according to the GUI configuration """
+        solver = BaseCavitySolver()
+        config = {}
+        # TODO
+        config["useTimeEvolution"] = self._mw.C_use_time_evolution.isChecked()
+        return solver, config
+    
+    def enable_interface(self, enable=True):
+        """ 
+        Enable or disable the interface buttons
+        Parameters:
+        ----------
+        enable : bool
+            True if the interface should be enabled, False if it should be disabled
+        """
+        # we disable the gui when we start a measurement so we don't try to start multiple measurements (i.e. threads)
+        en=int(enable)
+        self._mw.RUN_start_button.setEnabled(en)
+        self._mw.RUN_save_button.setEnabled(en)
+        if enable:
+            pass
+            #self._mw.RUN_start_button.setStyleSheet("background-color: none; color: black;")
+            #self._mw.RUN_save_button.setStyleSheet("background-color: none; color: black;")
+      
+    def update_plot(self, data=None):
+        """ 
+        Update the plot with the current data 
+
+        Parameters
+        ----------
+        data : np.ndarray
+            The data to be plotted. It can be a 1D array for the reflectivity/transmissivity or a 2D array for the time evolution
+        """
+        # temp creation of random data
+        if data is None:
+            data=np.array([np.linspace(12,13,100),np.random.rand(100)])
+            
+        self.set_plot_data(data)        
+        self.set_plot_axis()
+        print('Update plot')
+
+    def set_plot_data(self, data):
+        """ 
+        Set the data to be plotted 
+
+        Parameters
+        ----------
+        data : np.ndarray
+            The data to be plotted. It can be a 1D array for the reflectivity/transmissivity or a 2D array for the time evolution
+        """
+        if self._config_last_run["useTimeEvolution"]:
+            # TODO define 3d data, maybe we have to keep 2 elements (_plot_curve and ...) and work with the visibility / remove them when needed
+            pass
+        else:
+            frequencies=data[0,:]
+            powers=data[1,:]
+            self._plot_curve.setData(frequencies,powers, pen='b')
+    
+    def set_plot_axis(self):
+        """ Set the axis label for the plot """
+        self._plot_curve.getViewBox().updateAutoRange()
+        if self._config_last_run["useTimeEvolution"]:
+            # TODO define 3d axis
+            self._mw.plotwindow.setLabel(axis='bottom', text='Time', units='s',pen='k')
+            self._mw.plotwindow.setLabel(axis='left', text='Photon/Phonon population', units='1',pen='k')
+        else:
+            self._mw.plotwindow.getAxis('left').setTextPen('k')
+            self._mw.plotwindow.getAxis('bottom').setTextPen('k')
+            self._mw.plotwindow.setLabel(axis='bottom', text='Frequency', units='GHz',pen='k')
+            self._mw.plotwindow.setLabel(axis='left', text='Reflected/Transmitted power', units='1',pen='k')
+
     @Slot()
     def onClk_save_data(self):
         """ Save the plot to a png file and the config to a txt file"""
         filepath = self.get_unique_filepath()
         # save the configuration in a json file
-        try:
-            config = self._cavitySolver.get_current_configuration()
+        if self._config_last_run is not None:
+            config = self._config_last_run
+            config["solver"] = self._cavitySolver.get_current_configuration()
             with open(filepath+"_config.json", 'w') as f:
                 json.dump(config, f, indent=2)
-        except: pass
         plot = self._mw.plotwindow.getPlotItem()
         exporter = CSVExporter(plot)
         exporter.export(filepath+"_data.txt")
@@ -275,104 +358,6 @@ class Simulator(QObject):
 
         filePath = os.path.join(dir,filename+'{:06d}'.format(num_file))
         return filePath
-    
-    @Slot()
-    def onClk_start_simulation(self):
-        """ Start the simulation using the current configuration """
-        self.enable_interface(False)
-        print('Start simulation')
-        self._cavitySolver, isTimeEvolution = self.get_and_configure_solver_from_config()
-        if isTimeEvolution:
-            data = self._cavitySolver.solve_cavity_time_evolution()
-        else:
-            data = self._cavitySolver.solve_cavity_RT()
-        self.update_plot(data, isTimeEvolution)
-        self.enable_interface(True)
-
-    def get_and_configure_solver_from_config(self) -> tuple[BaseCavitySolver, bool]:
-        """ Create the solver object and configure it according to the GUI configuration """
-        solver = BaseCavitySolver()
-        # TODO
-        isTimeEvolution = self._mw.C_use_time_evolution.isChecked()
-        return solver, isTimeEvolution
-      
-    @Slot()
-    def update_plot(self, data=None, isTimeEvolution=False):
-        """ 
-        Update the plot with the current data 
-
-        Parameters
-        ----------
-        data : np.ndarray
-            The data to be plotted. It can be a 1D array for the reflectivity/transmissivity or a 2D array for the time evolution
-        isTimeEvolution : bool
-            True if the data is a time evolution, False if it is a reflectivity/transmissivity
-        """
-        # temp creation of random data
-        if data is None:
-            data=np.array([np.linspace(12,13,100),np.random.rand(100)])
-            
-        self.set_plot_data(data, isTimeEvolution)        
-        self.set_plot_axis(isTimeEvolution)
-        print('Update plot')
-
-    def set_plot_data(self, data, isTimeEvolution):
-        """ 
-        Set the data to be plotted 
-
-        Parameters
-        ----------
-        data : np.ndarray
-            The data to be plotted. It can be a 1D array for the reflectivity/transmissivity or a 2D array for the time evolution
-        isTimeEvolution : bool
-            True if the data is a time evolution, False if it is a reflectivity/transmissivity
-        """
-        if isTimeEvolution:
-            # TODO define 3d data, maybe we have to keep 2 elements (_plot_curve and ...) and work with the visibility / remove them when needed
-            pass
-        else:
-            self._frequencies=data[0,:]
-            self._powers=data[1,:]
-            self._plot_curve.setData(self._frequencies,self._powers, pen='b')
-    
-    def set_plot_axis(self, isTimeEvolution):
-        """ 
-        Set the axis label for the plot 
-
-        Parameters
-        ----------
-        isTimeEvolution : bool
-            True if the data is a time evolution, False if it is a reflectivity/transmissivity
-        """
-        self._plot_curve.getViewBox().updateAutoRange()
-        if isTimeEvolution:
-            # TODO define 3d axis
-            self._mw.plotwindow.setLabel(axis='bottom', text='Time', units='s',pen='k')
-            self._mw.plotwindow.setLabel(axis='left', text='Photon/Phonon population', units='1',pen='k')
-        else:
-            self._mw.plotwindow.getAxis('left').setTextPen('k')
-            self._mw.plotwindow.getAxis('bottom').setTextPen('k')
-            self._mw.plotwindow.setLabel(axis='bottom', text='Frequency', units='GHz',pen='k')
-            self._mw.plotwindow.setLabel(axis='left', text='Reflected/Transmitted power', units='1',pen='k')
-
-
-    def enable_interface(self, enable=True):
-        """ 
-        Enable or disable the interface buttons
-        Parameters:
-        ----------
-        enable : bool
-            True if the interface should be enabled, False if it should be disabled
-        """
-        # we disable the gui when we start a measurement so we don't try to start multiple measurements (i.e. threads)
-        en=int(enable)
-        self._mw.RUN_start_button.setEnabled(en)
-        self._mw.RUN_save_button.setEnabled(en)
-        if enable:
-            pass
-            #self._mw.RUN_start_button.setStyleSheet("background-color: none; color: black;")
-            #self._mw.RUN_save_button.setStyleSheet("background-color: none; color: black;")
-
 
 if __name__ == "__main__":
     import sys
