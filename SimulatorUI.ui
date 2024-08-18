@@ -138,13 +138,16 @@
                   </font>
                  </property>
                  <property name="toolTip">
-                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;When it is enabled, it is the normal frequency scan. When it is disabled, we sample at only one frequency (zero-span measurement). The sampling rate is determined by the sweep time and the number of points. &lt;/p&gt;&lt;p&gt;This mode is enabled when using the SS and the mixer to generate the sideband and downconvert it to the same frequency, and the RedPitaya for triggering. &lt;/p&gt;&lt;p&gt;In the future, we could have other uses for zero-span measurements.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                  <string/>
                  </property>
                  <property name="text">
                   <string>Optical mode</string>
                  </property>
-                 <property name="checked">
+                 <property name="checkable">
                   <bool>true</bool>
+                 </property>
+                 <property name="checked">
+                  <bool>false</bool>
                  </property>
                 </widget>
                </item>
@@ -465,13 +468,13 @@
                   </font>
                  </property>
                  <property name="toolTip">
-                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;When it is enabled, it is the normal frequency scan. When it is disabled, we sample at only one frequency (zero-span measurement). The sampling rate is determined by the sweep time and the number of points. &lt;/p&gt;&lt;p&gt;This mode is enabled when using the SS and the mixer to generate the sideband and downconvert it to the same frequency, and the RedPitaya for triggering. &lt;/p&gt;&lt;p&gt;In the future, we could have other uses for zero-span measurements.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                  <string/>
                  </property>
                  <property name="text">
                   <string>Mechanical mode</string>
                  </property>
                  <property name="checked">
-                  <bool>true</bool>
+                  <bool>false</bool>
                  </property>
                 </widget>
                </item>
@@ -816,7 +819,7 @@
           </widget>
           <widget class="QWidget" name="tab_2">
            <attribute name="title">
-            <string>Scan and advanced</string>
+            <string>Scan and advanced settings</string>
            </attribute>
            <widget class="QWidget" name="layoutWidget_2">
             <property name="geometry">
@@ -859,7 +862,7 @@
                   </font>
                  </property>
                  <property name="toolTip">
-                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;When it is enabled, it is the normal frequency scan. When it is disabled, we sample at only one frequency (zero-span measurement). The sampling rate is determined by the sweep time and the number of points. &lt;/p&gt;&lt;p&gt;This mode is enabled when using the SS and the mixer to generate the sideband and downconvert it to the same frequency, and the RedPitaya for triggering. &lt;/p&gt;&lt;p&gt;In the future, we could have other uses for zero-span measurements.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                  <string/>
                  </property>
                  <property name="text">
                   <string>Optical FSR scan</string>
@@ -1034,7 +1037,7 @@
                   </font>
                  </property>
                  <property name="toolTip">
-                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;When it is enabled, it is the normal frequency scan. When it is disabled, we sample at only one frequency (zero-span measurement). The sampling rate is determined by the sweep time and the number of points. &lt;/p&gt;&lt;p&gt;This mode is enabled when using the SS and the mixer to generate the sideband and downconvert it to the same frequency, and the RedPitaya for triggering. &lt;/p&gt;&lt;p&gt;In the future, we could have other uses for zero-span measurements.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                  <string/>
                  </property>
                  <property name="text">
                   <string>Pump power scan</string>
@@ -1210,7 +1213,7 @@
                   </font>
                  </property>
                  <property name="toolTip">
-                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;When it is enabled, it is the normal frequency scan. When it is disabled, we sample at only one frequency (zero-span measurement). The sampling rate is determined by the sweep time and the number of points. &lt;/p&gt;&lt;p&gt;This mode is enabled when using the SS and the mixer to generate the sideband and downconvert it to the same frequency, and the RedPitaya for triggering. &lt;/p&gt;&lt;p&gt;In the future, we could have other uses for zero-span measurements.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                  <string/>
                  </property>
                  <property name="text">
                   <string>Use phonon bath</string>
@@ -1273,7 +1276,7 @@
                   </font>
                  </property>
                  <property name="readOnly">
-                  <bool>true</bool>
+                  <bool>false</bool>
                  </property>
                  <property name="decimals">
                   <number>3</number>
@@ -1318,13 +1321,13 @@
                   </font>
                  </property>
                  <property name="toolTip">
-                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;When it is enabled, it is the normal frequency scan. When it is disabled, we sample at only one frequency (zero-span measurement). The sampling rate is determined by the sweep time and the number of points. &lt;/p&gt;&lt;p&gt;This mode is enabled when using the SS and the mixer to generate the sideband and downconvert it to the same frequency, and the RedPitaya for triggering. &lt;/p&gt;&lt;p&gt;In the future, we could have other uses for zero-span measurements.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                  <string/>
                  </property>
                  <property name="text">
                   <string>Show evolution</string>
                  </property>
                  <property name="checked">
-                  <bool>true</bool>
+                  <bool>false</bool>
                  </property>
                 </widget>
                </item>
