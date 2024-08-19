@@ -4,8 +4,9 @@ Analytical model for cavity solvers
 from cavity_solver import BaseCavitySolver
 import numpy as np
 from typing import Union
+from qutip import *
 
-class AnalyticalCavitySolver(BaseCavitySolver):
+class QuantumOptomechanicalCavitySolver(BaseCavitySolver):
 
     def __init__(self):
         super().__init__()
@@ -51,54 +52,47 @@ class AnalyticalCavitySolver(BaseCavitySolver):
             final pump complex amplitude
         
         """
-        self._solver =  self.__class__.__name__
+        self._solver = self.__class__.__name__
         self._kappa_ext1_s = kwargs.get("kappa_ext1_s", 1e6)
         self._kappa_ext2_s = kwargs.get("kappa_ext2_s", 1e6)
         self._kappa_s = self._kappa_ext1_s + self._kappa_ext2_s + kwargs.get("kappa_0_s", 1e6)
         self._omega_p = kwargs.get("omega_p", 200e12)
         self._is_sideband_stokes = kwargs.get("is_sideband_stokes", False)
-        scan_points = 7
-        # optical vs mechanical mode model
-        if kwargs.get("is_optomechanical", False):
-            self._G0 = kwargs.get("G0", 100)
-            self._omega_s = self._omega_p + (-1 if self._is_sideband_stokes else 1)*kwargs.get("FSR_s", 12e9)
-            self._Omega_m = kwargs.get("Omega_m", 12e9)
-            self._gamma_m = kwargs.get("gamma_m", 1e6)
-            # scan the pump power
-            # photons inside a cavity
-            #              k_ext1                           k_ext1         P_in1
-            #    N  = --------------- |alpha_in1|^2 = ---------------*---------------
-            #          k^2/4 + Delta                   k^2/4 + Delta   h_bar * omega
-            power_to_alpha = lambda x: np.sqrt(x * 2*np.pi*self._kappa_ext1_s / ((2*np.pi*self._kappa_s)**2 / 4) / (6.626e-34 *self._omega_p))
-            if kwargs.get("scan_pump_power", False):
-                self._alpha_p = np.linspace(power_to_alpha(kwargs.get("power_p_0", 0)), power_to_alpha(kwargs.get("power_p_1", 1e-1)), scan_points).reshape(-1,1)
-            else:
-                self._alpha_p = power_to_alpha(kwargs.get("power_p", 1e-3))
+        # optomechanical parameters
+        self._G0 = kwargs.get("G0", 100)
+        self._omega_s = self._omega_p + (-1 if self._is_sideband_stokes else 1)*kwargs.get("FSR_s", 12e9)
+        self._Omega_m = kwargs.get("Omega_m", 12e9)
+        self._gamma_m = kwargs.get("gamma_m", 1e6)
+        if kwargs.get("use_bath", False):
+            self._n_bath_m = 1 / (6.626e-34 * self._omega_p / 1.38e-23 / kwargs.get("bath_T",0))
         else:
-            self._G0 = 0
-            self._omega_s = self._omega_p
-            self._Omega_m = 0
-            self._gamma_m = 0
-            self._alpha_p = 0
-        # define the scan range for the plot. If we are scanning the central frequency of the response, we need to take it into account
-        if kwargs.get("scan_FSR_detuning", False):
-            range_plot = max(3*self._kappa_s, 2*self._gamma_m)
-            det_m = kwargs.get("detuning_s_0", -range_plot/2)
-            det_p = max(det_m, kwargs.get("detuning_s_1", range_plot/2))
-            self._omega_in1_s = np.linspace(self._omega_s + min(-range_plot,det_m), self._omega_s + max(range_plot,det_p), 301)
-            self._omega_s = np.linspace(self._omega_s + det_m, self._omega_s + det_p, scan_points).reshape(-1,1)
-        else:
-            range_plot = max(3*self._kappa_s, 2*self._gamma_m)
-            self._omega_in1_s = np.linspace(self._omega_s - range_plot, self._omega_s + range_plot, 301)
+            self._n_bath_m = 0
+        # scan the pump power
+        # photons inside a cavity
+        #              k_ext1                           k_ext1         P_in1
+        #    N  = --------------- |alpha_in1|^2 = ---------------*---------------
+        #          k^2/4 + Delta                   k^2/4 + Delta   h_bar * omega
+        power_to_alpha = lambda x: np.sqrt(x * 2*np.pi*self._kappa_ext1_s / ((2*np.pi*self._kappa_s)**2 / 4) / (6.626e-34 * self._omega_p))
+        self._alpha_p = power_to_alpha(kwargs.get("power_p", 1e-3))
+        # define the scan range for the plot.
+        range_plot = max(3*self._kappa_s, 2*self._gamma_m)
+        self._omega_in1_s = np.linspace(self._omega_s - range_plot, self._omega_s + range_plot, 11)
         # improve visualization with small mechanical linewidth
         if self._gamma_m < 0.2*self._kappa_s:
             self._omega_in1_s = np.unique(np.sort(np.concatenate((self._omega_in1_s, 
+                                            np.linspace(self._omega_s - 1.5*self._kappa_s, self._omega_s + 1.5*self._kappa_s, 21),
                                                                   self._omega_p + (-1 if self._is_sideband_stokes else 1) *\
-                                  np.linspace(self._Omega_m - self._gamma_m, self._Omega_m + self._gamma_m, 201)))))
+                                  np.linspace(self._Omega_m - 3*self._gamma_m, self._Omega_m + 3*self._gamma_m, 21)))))
         
         self._alpha_in1_s = np.sqrt(2*np.pi*self._kappa_ext1_s) # for numerial stability
         self._delta_s = self._omega_s - self._omega_in1_s
         self._delta_m = (self._omega_p - self._omega_in1_s) + (-1 if self._is_sideband_stokes else 1)*self._Omega_m
+        #speed up the calculation far from the optical and mechanical resonance
+        close_m = np.abs(self._delta_m) < min(1.2*self._gamma_m , 0.2*self._kappa_s)
+        close_s = np.abs(self._delta_s) < max(self._kappa_s, self._gamma_m)
+        self._N = np.int32(4 + 2*close_s + 2*close_m)
+        self._N_m = np.int32(np.clip(4 + 2*close_s + 4*close_m + 6*close_m*self._is_sideband_stokes, a_min=np.round(0.5+2*self._n_bath_m), a_max=None))
+        self._max_t_evolution = max(15/self._kappa_s, 15/self._gamma_m)
         self._configured = True
 
     def _calculate_cavity_field(self) -> Union[float, np.ndarray]:
@@ -125,12 +119,42 @@ class AnalyticalCavitySolver(BaseCavitySolver):
             complex amplitude of the sideband field of the cavity
         """
 
-        P = np.sqrt(2*np.pi*self._kappa_ext1_s) / (\
-            1j * 2*np.pi*self._delta_s + 2*np.pi*self._kappa_s / 2 +\
-            (2*np.pi*self._G0) ** 2 * np.abs(self._alpha_p) ** 2 / \
-                (1j * 2*np.pi*self._delta_m + (-1 if self._is_sideband_stokes else 1) * 2*np.pi*self._gamma_m / 2)\
-        ) * self._alpha_in1_s
-        return P
+        a_ss = np.zeros_like(self._omega_in1_s, np.complex128)
+        for i in range(len(self._omega_in1_s)):
+            # init fields
+            a = tensor(destroy(self._N[i]), qeye(self._N_m[i]))
+            b = tensor(qeye(self._N[i]), destroy(self._N_m[i]))
+            n_a = a.dag()*a
+            n_b = b.dag()*b
+
+            # Rotating wave approximation with the input field that correspond to the frequency we are probing
+            # and for the mechanical mode, to the difference between sideband and mechanical frequency
+            # delta_s = omega-omega_in1
+            # delta_m = omega_m - (1 if is_sideband_stokes else -1)*(omega_p-omega_in1_s)
+            free_evolution = 2*np.pi*self._delta_s[i]*n_a + 2*np.pi*self._delta_m[i]*n_b
+            incoupling_fields = 1j*np.sqrt(2*np.pi*self._kappa_ext1_s)*self._alpha_in1_s*(a.dag()-a)
+            #interaction = GO*abs(alpha_p)*(a.dag()+a)*(b.dag()+b)
+            interaction = -2*np.pi*self._G0*abs(self._alpha_p)*(a.dag()*b.dag() + a*b if self._is_sideband_stokes else a.dag()*b + a*b.dag())
+            decay_channel_a = np.sqrt(2*np.pi*self._kappa_s)*a
+            decay_channel_b = np.sqrt(2*np.pi*self._gamma_m*(self._n_bath_m+1))*b
+            decay_channel_b_dag = np.sqrt(2*np.pi*self._gamma_m*self._n_bath_m)*b.dag()
+
+            Hamiltonian = free_evolution + incoupling_fields + interaction
+            collapse_operators = [decay_channel_a,decay_channel_b,decay_channel_b_dag]
+
+            t = np.linspace(0, self._max_t_evolution, 1200)
+            # init vacuum state
+            rho_0 = tensor(coherent(self._N[i],0),coherent(self._N_m[i],self._n_bath_m))
+            # solve time evolution with master equation
+            result = mesolve(Hamiltonian, rho_0, t, collapse_operators, [a,n_a,n_b])
+            a_me,n_a_me,n_b_me = result.expect
+            a_ss[i] = np.mean(a_me[-10:])
+            n_a_ss = np.mean(n_a_me[-10:])
+            n_b_ss = np.mean(n_b_me[-10:])
+            print(np.max(n_a_me),np.max(n_b_me))
+            print(f"MESolver({self._N[i]},{self._N_m[i]}) {i+1}/{len(self._omega_in1_s)}: n_a={n_a_ss}, n_b={n_b_ss}")
+
+        return a_ss
     
     def _calculate_time_evolution(self) -> tuple[Union[float, np.ndarray], Union[float, np.ndarray]]:
         """ Get the cavity field time evolution from the cavity paramters and the model"""
@@ -191,5 +215,6 @@ class AnalyticalCavitySolver(BaseCavitySolver):
             "gamma_m": self._gamma_m,
             "delta_m": self._delta_m,
             "G0": self._G0,
+            "n_bath_m": self._n_bath_m,
         }
         return config

@@ -18,6 +18,7 @@ import re
 import json
 from cavity_solver import BaseCavitySolver
 from analytical_cavity_solver import AnalyticalCavitySolver
+from quantum_optomechanical_cavity_solver import QuantumOptomechanicalCavitySolver
 
 _use_autogen = False
 from simulator_UI_autogen import Ui_Simulator
@@ -264,7 +265,7 @@ class Simulator(QObject):
         if config["is_solver_quantum"]:
             if config["use_mechanical_mode"]:
                 config["solver"] = "quantum_optomechanical_cavity"
-                #solver = QuantumOptomechanicalCavitySolver()
+                solver = QuantumOptomechanicalCavitySolver()
             else:
                 config["solver"] = "quantum_optical_cavity"
                 #solver = QuantumOpticalCavitySolver()
@@ -277,7 +278,7 @@ class Simulator(QObject):
                          #is_quantum=config["is_solver_quantum"],
                          scan_FSR_detuning=config["scan_FSR_detuning"],
                          scan_pump_power=config["scan_pump_power"],
-                         #use_bath=config["use_quantum_bath"],
+                         use_bath=config["use_quantum_bath"],
                          #use_time_evolution=config["use_time_evolution"],
                          omega_p=3e8/(self._mw.C_omega_p_nm.value()/1e9),
                          kappa_ext1_s=self._mw.C_kappa_ext_1_MHz.value()*1e6,

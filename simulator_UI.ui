@@ -81,7 +81,7 @@
           <property name="minimumSize">
            <size>
             <width>450</width>
-            <height>350</height>
+            <height>330</height>
            </size>
           </property>
           <property name="maximumSize">
@@ -402,7 +402,7 @@
                   <double>0.100000000000000</double>
                  </property>
                  <property name="value">
-                  <double>1.000000000000000</double>
+                  <double>0.100000000000000</double>
                  </property>
                 </widget>
                </item>
