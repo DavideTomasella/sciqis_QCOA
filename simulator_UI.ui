@@ -91,7 +91,7 @@
            </size>
           </property>
           <property name="currentIndex">
-           <number>1</number>
+           <number>0</number>
           </property>
           <widget class="QWidget" name="tab">
            <attribute name="title">
@@ -363,7 +363,7 @@
                   </font>
                  </property>
                  <property name="text">
-                  <string>kappa Cavity [MHz]</string>
+                  <string>kappa 0 Cavity [MHz]</string>
                  </property>
                 </widget>
                </item>
@@ -528,7 +528,7 @@
                   </font>
                  </property>
                  <property name="decimals">
-                  <number>3</number>
+                  <number>4</number>
                  </property>
                  <property name="minimum">
                   <double>1.000000000000000</double>
@@ -537,7 +537,7 @@
                   <double>20.000000000000000</double>
                  </property>
                  <property name="singleStep">
-                  <double>0.100000000000000</double>
+                  <double>0.001000000000000</double>
                  </property>
                  <property name="value">
                   <double>12.000000000000000</double>
@@ -603,7 +603,7 @@
                   <double>0.100000000000000</double>
                  </property>
                  <property name="value">
-                  <double>1.000000000000000</double>
+                  <double>0.100000000000000</double>
                  </property>
                 </widget>
                </item>
@@ -666,12 +666,12 @@
                   <double>0.100000000000000</double>
                  </property>
                  <property name="value">
-                  <double>100.000000000000000</double>
+                  <double>12.000000000000000</double>
                  </property>
                 </widget>
                </item>
                <item>
-                <widget class="QLabel" name="C_n_p_lbl">
+                <widget class="QLabel" name="C_P_mW_lbl">
                  <property name="minimumSize">
                   <size>
                    <width>200</width>
@@ -690,12 +690,12 @@
                   </font>
                  </property>
                  <property name="text">
-                  <string>Pump power [photons]</string>
+                  <string>Pump power [mW]</string>
                  </property>
                 </widget>
                </item>
                <item>
-                <widget class="QDoubleSpinBox" name="C_n_p">
+                <widget class="QDoubleSpinBox" name="C_P_mW">
                  <property name="sizePolicy">
                   <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                    <horstretch>0</horstretch>
@@ -720,16 +720,19 @@
                   </font>
                  </property>
                  <property name="decimals">
-                  <number>0</number>
+                  <number>4</number>
                  </property>
                  <property name="minimum">
-                  <double>1.000000000000000</double>
+                  <double>0.000000000000000</double>
                  </property>
                  <property name="maximum">
-                  <double>1000000.000000000000000</double>
+                  <double>1000.000000000000000</double>
+                 </property>
+                 <property name="singleStep">
+                  <double>0.100000000000000</double>
                  </property>
                  <property name="value">
-                  <double>1000.000000000000000</double>
+                  <double>0.500000000000000</double>
                  </property>
                 </widget>
                </item>
@@ -783,13 +786,16 @@
                   </font>
                  </property>
                  <property name="decimals">
-                  <number>3</number>
+                  <number>4</number>
                  </property>
                  <property name="minimum">
                   <double>1.000000000000000</double>
                  </property>
                  <property name="maximum">
                   <double>100.000000000000000</double>
+                 </property>
+                 <property name="singleStep">
+                  <double>0.001000000000000</double>
                  </property>
                  <property name="value">
                   <double>12.000000000000000</double>
@@ -892,7 +898,7 @@
                   </font>
                  </property>
                  <property name="text">
-                  <string>Freq. Start [MHz]</string>
+                  <string>Detuning Start [MHz]</string>
                  </property>
                 </widget>
                </item>
@@ -924,11 +930,17 @@
                  <property name="decimals">
                   <number>3</number>
                  </property>
+                 <property name="minimum">
+                  <double>-100.000000000000000</double>
+                 </property>
                  <property name="maximum">
-                  <double>20000.000000000000000</double>
+                  <double>100.000000000000000</double>
+                 </property>
+                 <property name="singleStep">
+                  <double>0.100000000000000</double>
                  </property>
                  <property name="value">
-                  <double>12400.000000000000000</double>
+                  <double>-3.000000000000000</double>
                  </property>
                 </widget>
                </item>
@@ -952,7 +964,7 @@
                   </font>
                  </property>
                  <property name="text">
-                  <string>Freq. Stop [MHz]</string>
+                  <string>Detuning Stop [MHz]</string>
                  </property>
                 </widget>
                </item>
@@ -984,11 +996,17 @@
                  <property name="decimals">
                   <number>3</number>
                  </property>
+                 <property name="minimum">
+                  <double>-100.000000000000000</double>
+                 </property>
                  <property name="maximum">
-                  <double>20000.000000000000000</double>
+                  <double>100.000000000000000</double>
+                 </property>
+                 <property name="singleStep">
+                  <double>0.100000000000000</double>
                  </property>
                  <property name="value">
-                  <double>12600.000000000000000</double>
+                  <double>3.000000000000000</double>
                  </property>
                 </widget>
                </item>
@@ -1048,7 +1066,7 @@
                 </widget>
                </item>
                <item>
-                <widget class="QLabel" name="C_P_start_n_lbl">
+                <widget class="QLabel" name="C_P_start_mW_lbl">
                  <property name="minimumSize">
                   <size>
                    <width>200</width>
@@ -1067,12 +1085,12 @@
                   </font>
                  </property>
                  <property name="text">
-                  <string>Start [photons]</string>
+                  <string>Start [mW]</string>
                  </property>
                 </widget>
                </item>
                <item>
-                <widget class="QSpinBox" name="C_P_start_n">
+                <widget class="QDoubleSpinBox" name="C_P_start_mW">
                  <property name="sizePolicy">
                   <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                    <horstretch>0</horstretch>
@@ -1096,74 +1114,86 @@
                    <pointsize>10</pointsize>
                   </font>
                  </property>
-                 <property name="maximum">
-                  <number>100000</number>
-                 </property>
-                 <property name="value">
-                  <number>0</number>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="QLabel" name="C_P_stop_n_lbl">
-                 <property name="minimumSize">
-                  <size>
-                   <width>200</width>
-                   <height>20</height>
-                  </size>
-                 </property>
-                 <property name="maximumSize">
-                  <size>
-                   <width>16777215</width>
-                   <height>20</height>
-                  </size>
-                 </property>
-                 <property name="font">
-                  <font>
-                   <pointsize>10</pointsize>
-                  </font>
-                 </property>
-                 <property name="text">
-                  <string>Stop [photons]</string>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="QSpinBox" name="C_P_stop_n">
-                 <property name="sizePolicy">
-                  <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-                   <horstretch>0</horstretch>
-                   <verstretch>0</verstretch>
-                  </sizepolicy>
-                 </property>
-                 <property name="minimumSize">
-                  <size>
-                   <width>150</width>
-                   <height>22</height>
-                  </size>
-                 </property>
-                 <property name="maximumSize">
-                  <size>
-                   <width>16777215</width>
-                   <height>22</height>
-                  </size>
-                 </property>
-                 <property name="font">
-                  <font>
-                   <pointsize>10</pointsize>
-                  </font>
-                 </property>
-                 <property name="specialValueText">
-                  <string/>
+                 <property name="decimals">
+                  <number>4</number>
                  </property>
                  <property name="minimum">
-                  <number>1</number>
+                  <double>0.000000000000000</double>
                  </property>
                  <property name="maximum">
-                  <number>100000</number>
+                  <double>1000.000000000000000</double>
+                 </property>
+                 <property name="singleStep">
+                  <double>0.100000000000000</double>
                  </property>
                  <property name="value">
-                  <number>10000</number>
+                  <double>0.000000000000000</double>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QLabel" name="C_P_stop_mW_lbl">
+                 <property name="minimumSize">
+                  <size>
+                   <width>200</width>
+                   <height>20</height>
+                  </size>
+                 </property>
+                 <property name="maximumSize">
+                  <size>
+                   <width>16777215</width>
+                   <height>20</height>
+                  </size>
+                 </property>
+                 <property name="font">
+                  <font>
+                   <pointsize>10</pointsize>
+                  </font>
+                 </property>
+                 <property name="text">
+                  <string>Stop [mW]</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QDoubleSpinBox" name="C_P_stop_mW">
+                 <property name="sizePolicy">
+                  <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                   <horstretch>0</horstretch>
+                   <verstretch>0</verstretch>
+                  </sizepolicy>
+                 </property>
+                 <property name="minimumSize">
+                  <size>
+                   <width>150</width>
+                   <height>22</height>
+                  </size>
+                 </property>
+                 <property name="maximumSize">
+                  <size>
+                   <width>16777215</width>
+                   <height>22</height>
+                  </size>
+                 </property>
+                 <property name="font">
+                  <font>
+                   <pointsize>10</pointsize>
+                  </font>
+                 </property>
+                 <property name="decimals">
+                  <number>4</number>
+                 </property>
+                 <property name="minimum">
+                  <double>0.000000000000000</double>
+                 </property>
+                 <property name="maximum">
+                  <double>1000.000000000000000</double>
+                 </property>
+                 <property name="singleStep">
+                  <double>0.100000000000000</double>
+                 </property>
+                 <property name="value">
+                  <double>20.000000000000000</double>
                  </property>
                 </widget>
                </item>

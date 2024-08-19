@@ -5,11 +5,12 @@ Author: Davide Tomasella
 # In[]
 import os
 from qtpy import QtCore
+from qtpy import QtWidgets
+from qtpy import uic
 from qtpy.QtCore import Slot
 from qtpy.QtCore import QObject
-from qtpy import QtWidgets
+from qtpy.QtGui import QPainter
 from simulator_UI_autogen import Ui_Simulator
-from qtpy import uic
 import pyqtgraph as pg
 from pyqtgraph.exporters import ImageExporter, CSVExporter
 import numpy as np
@@ -110,8 +111,10 @@ class Simulator(QObject):
         # save and start buttons
         self._mw.RUN_save_button.clicked.connect(self.onClk_save_data)
         self._mw.RUN_save_button.setEnabled(1)
+        self._mw.RUN_save_button.setShortcut("Ctrl+S")
         self._mw.RUN_start_button.clicked.connect(self.onClk_start_simulation)
         self._mw.RUN_start_button.setEnabled(1)
+        self._mw.RUN_start_button.setShortcut("Ctrl+R")
         # select sliders for the type of simulation and the sideband
         self._mw.T_sideband_select.valueChanged.connect(self.onChange_sideband_select)
         self._mw.T_model_select.valueChanged.connect(self.onChange_model_select)
@@ -134,8 +137,9 @@ class Simulator(QObject):
 
     def init_plot(self):
         """Configuration of the gui module corresponding to the plot window"""
-        self._plot_curve : pg.GraphicsObject = pg.PlotDataItem() # TODO maybe different elements for 3d...
-        self._mw.plotwindow.addItem(self._plot_curve)
+        #self._plot_curve : pg.GraphicsObject = pg.PlotDataItem() # TODO maybe different elements for 3d...
+        #self._mw.plotwindow.addItem(self._plot_curve)
+        self._mw.plotwindow.setRenderHints(QPainter.Antialiasing)
         self.update_plot()
     
 
@@ -193,14 +197,14 @@ class Simulator(QObject):
     @Slot()
     def onChange_scan_optical_FSR_detuning(self):
         """ Update the graphical elements when we are scanning the optical FSR detuning """
-        self._mw.C_scan_P.setEnabled(self._mw.C_scan_D.isChecked())
+        self._mw.C_scan_P.setEnabled(not self._mw.C_scan_D.isChecked())
         if self._mw.C_scan_D.isChecked() and self._mw.T_model_select.value() == 1:
             raise ValueError('Cannot scan the detuning in quantum mode')
             
     @Slot()
     def onChange_scan_optical_pump_power(self):
         """ Update the graphical elements when we are scanning the optical pump power """
-        self._mw.C_scan_D.setEnabled(self._mw.C_scan_P.isChecked())
+        self._mw.C_scan_D.setEnabled(not self._mw.C_scan_P.isChecked())
         if self._mw.C_scan_P.isChecked() and self._mw.T_model_select.value() == 1:
             raise ValueError('Cannot scan the pump power in quantum mode')
 
@@ -250,6 +254,8 @@ class Simulator(QObject):
         config["use_mechanical_mode"] = self._mw.C_use_mech.isChecked()
         config["use_quantum_bath"] = self._mw.C_use_bath.isChecked()
         config["use_time_evolution"] = self._mw.C_use_time_evolution.isChecked()
+        config["scan_FSR_detuning"] = self._mw.C_scan_D.isChecked()
+        config["scan_pump_power"] = self._mw.C_scan_P.isChecked()
         config["is_sideband_stokes"] = self._mw.T_sideband_select.value() == 0
         config["is_solver_quantum"] = self._mw.T_model_select.value() == 1
 
@@ -258,29 +264,34 @@ class Simulator(QObject):
         if config["is_solver_quantum"]:
             if config["use_mechanical_mode"]:
                 config["solver"] = "quantum_optomechanical_cavity"
-                solver = QuantumOptomechanicalCavitySolver()
+                #solver = QuantumOptomechanicalCavitySolver()
             else:
                 config["solver"] = "quantum_optical_cavity"
-                solver = QuantumOpticalCavitySolver()
+                #solver = QuantumOpticalCavitySolver()
         else:
             config["solver"] = "classical_cavity"
             solver = AnalyticalCavitySolver()
         # configure the solver
-        solver.configure(is_sideband_stokes=config["is_sideband_stokes"],
-                         #isQuantum=config["is_solver_quantum"],
-                         omega_p=3e8/self._mw.C_omega_p_nm.value(),                         
+        solver.configure(is_optomechanical=config["use_mechanical_mode"],
+                         is_sideband_stokes=config["is_sideband_stokes"],
+                         #is_quantum=config["is_solver_quantum"],
+                         scan_FSR_detuning=config["scan_FSR_detuning"],
+                         scan_pump_power=config["scan_pump_power"],
+                         #use_bath=config["use_quantum_bath"],
+                         #use_time_evolution=config["use_time_evolution"],
+                         omega_p=3e8/(self._mw.C_omega_p_nm.value()/1e9),
                          kappa_ext1_s=self._mw.C_kappa_ext_1_MHz.value()*1e6,
                          kappa_ext2_s=self._mw.C_kappa_ext_1_MHz.value()*1e6,
-                         kappa_s=self._mw.C_kappa_0_MHz.value()*1e6,
+                         kappa_0_s=self._mw.C_kappa_0_MHz.value()*1e6,
                          Omega_m=self._mw.C_Omega_m_GHz.value()*1e9,
                          gamma_m=self._mw.C_gamma_MHz.value()*1e6,
-                         G0=self._mw.C_G0_Hz.value()*config["use_mechanical_mode"],
-                         alpha_p=np.sqrt(self._mw.C_n_p.value()),
+                         G0=self._mw.C_G0_Hz.value(),
                          FSR_s=self._mw.C_FSR_GHz.value()*1e9,
-                         FSR_s_0=self._mw.C_f_start_MHz.value()*1e6,
-                         FSR_s_1=self._mw.C_f_stop_MHz.value()*1e6,
-                         alpha_p_0=np.sqrt(self._mw.C_P_start_n.value()),
-                         alpha_p_1=np.sqrt(self._mw.C_P_stop_n.value()),
+                         detuning_s_0=self._mw.C_f_start_MHz.value()*1e6,
+                         detuning_s_1=self._mw.C_f_stop_MHz.value()*1e6,
+                         power_p=self._mw.C_P_mW.value()/1e3,
+                         power_p_0=self._mw.C_P_start_mW.value()/1e3,
+                         power_p_1=self._mw.C_P_stop_mW.value()/1e3,
                          bath_T=self._mw.C_bath_K.value())
         config["solver_params"] = solver.get_current_configuration()
         if config["use_time_evolution"]:
@@ -305,7 +316,7 @@ class Simulator(QObject):
             #self._mw.RUN_start_button.setStyleSheet("background-color: none; color: black;")
             #self._mw.RUN_save_button.setStyleSheet("background-color: none; color: black;")
       
-    def update_plot(self, data=None):
+    def update_plot(self, data=None, is_time_evolution=False):
         """ 
         Update the plot with the current data 
 
@@ -316,13 +327,13 @@ class Simulator(QObject):
         """
         # temp creation of random data
         if data is None:
-            data=np.array([np.linspace(12,13,100),np.random.rand(100)])
+            data=[np.linspace(12,13,100),np.random.rand(100),np.random.rand(100)]
             
-        self.set_plot_data(data)        
-        self.set_plot_axis()
+        self.set_plot_data(data, is_time_evolution)        
+        self.set_plot_axis(is_time_evolution)
         print('Update plot')
 
-    def set_plot_data(self, data):
+    def set_plot_data(self, data, is_time_evolution):
         """ 
         Set the data to be plotted 
 
@@ -330,27 +341,44 @@ class Simulator(QObject):
         ----------
         data : np.ndarray
             The data to be plotted. It can be a 1D array for the reflectivity/transmissivity or a 2D array for the time evolution
+        is_time_evolution : bool
+            True if we are plotting the time evolution, False if we are plotting the reflectivity/transmissivity
         """
-        if self._config_last_run["use_time_evolution"]:
+        if is_time_evolution:
             # TODO define 3d data, maybe we have to keep 2 elements (_plot_curve and ...) and work with the visibility / remove them when needed
             pass
         else:
-            frequencies=data[0,:]
-            powers=data[1,:]
-            self._plot_curve.setData(frequencies,powers, pen='b')
+            frequencies = data[0]
+            reflectivity = data[1]
+            transmissivity = data[2]
+            self._mw.plotwindow.clear()
+            if len(reflectivity.shape) > 1:
+                cm=pg.colormap.get("viridis").getLookupTable(nPts=reflectivity.shape[0])
+                for i in range(reflectivity.shape[0]):
+                    self._mw.plotwindow.plot(frequencies,reflectivity[i], pen=pg.mkPen(cm[i], width=2))
+                    self._mw.plotwindow.plot(frequencies,transmissivity[i], pen=pg.mkPen(cm[i], width=2, dash=[2, 4]))
+            else:
+                self._mw.plotwindow.plot(frequencies,reflectivity, pen=pg.mkPen('b', width=2))
+                self._mw.plotwindow.plot(frequencies,transmissivity, pen=pg.mkPen('b', width=2, dash=[2, 4]))
+            #self._plot_curve.setData(frequencies,reflectivity, pen='b')
+            #self._plot_curve.setData(frequencies,transmissivity, pen='r')
     
-    def set_plot_axis(self):
+    def set_plot_axis(self, is_time_evolution):
         """ Set the axis label for the plot """
-        self._plot_curve.getViewBox().updateAutoRange()
-        if self._config_last_run["use_time_evolution"]:
+        if is_time_evolution:
             # TODO define 3d axis
             self._mw.plotwindow.setLabel(axis='bottom', text='Time', units='s',pen='k')
-            self._mw.plotwindow.setLabel(axis='left', text='Photon/Phonon population', units='1',pen='k')
+            self._mw.plotwindow.setLabel(axis='left', text='Photon/Phonon population', units='',pen='k')
         else:
+            viewBox=self._mw.plotwindow.getViewBox()
+            viewBox.updateAutoRange()
+            viewBox.enableAutoRange(axis='x', enable=True)
+            viewBox.enableAutoRange(axis='y', enable=True)
+            viewBox.setMouseEnabled(x=True, y=False)
             self._mw.plotwindow.getAxis('left').setTextPen('k')
             self._mw.plotwindow.getAxis('bottom').setTextPen('k')
-            self._mw.plotwindow.setLabel(axis='bottom', text='Frequency', units='GHz',pen='k')
-            self._mw.plotwindow.setLabel(axis='left', text='Reflected/Transmitted power', units='1',pen='k')
+            self._mw.plotwindow.setLabel(axis='bottom', text='Frequency', units='Hz',pen='k')
+            self._mw.plotwindow.setLabel(axis='left', text='Reflected/Transmitted power', units='',pen='k')
 
     @Slot()
     def onClk_save_data(self):
@@ -361,8 +389,8 @@ class Simulator(QObject):
             config = self._config_last_run
             # TODO decide if the current configuration can be changed during the run
             config["solver_params"] = self._cavitySolver.get_current_configuration()
-            with open(filepath+"_config.json", 'w') as f:
-                json.dump(config, f, indent=2)
+            with open(filepath+"_cfg.json", 'w') as f:
+                json.dump(config, f, indent=2, cls=self.NumpyEncoder)
         plot = self._mw.plotwindow.getPlotItem()
         exporter = CSVExporter(plot)
         exporter.export(filepath+"_data.txt")
@@ -391,16 +419,27 @@ class Simulator(QObject):
         filename = self._mw.F_file_name.text()
         # File numbering has 6 values, add them to the filename if not present
 
-        indexes= [np.int32(name[-6-l_ext:-l_ext])
+        indexes= [np.int32(name.split("_")[-2][-6:])
                   for name in os.listdir(dir) if name.startswith(filename)]
         num_file = np.max(indexes+[0]) + 1
 
         filePath = os.path.join(dir,filename+'{:06d}'.format(num_file))
         return filePath
+    
+    class NumpyEncoder(json.JSONEncoder):
+        def default(self, obj):
+            if isinstance(obj, np.ndarray):
+                return obj.tolist()
+            return super().default(obj)
 
 if __name__ == "__main__":
+    import platform
+    import ctypes
+    if platform.system()=='Windows' and int(platform.release()) >= 8:   
+        ctypes.windll.shcore.SetProcessDpiAwareness(False)
     import sys
     app = QtWidgets.QApplication([])
+    app.setAttribute(QtCore.Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
     gui = Simulator()
     gui.on_activate()
     sys.exit(app.exec_())
