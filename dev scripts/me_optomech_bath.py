@@ -118,7 +118,7 @@ def get_steady_state_field_optomechanical_cavity(delta_s, kappa_ext1_s, kappa_s,
     ```
         H = delta_s * a.dag() * a + delta_m * b.dag() * b - G_0 * abs(alpha_p) * (a.dag() * b + a * b.dag()) + 1j * sqrt(kappa_ext1_s) * alpha_in1_s * (a.dag() - a)
                                                             G_0 * abs(alpha_p) * (a.dag() * b.dag() + a * b)
-        L = [sqrt(kappa_s) * a, sqrt(gamma_m) * b]
+        L = [sqrt(kappa_s) * a, sqrt(gamma_m * (n_th + 1)) * b, sqrt(gamma_m * n_th) * b.dag()]
     ```
     We are using the rotating wave approximation with the input field that correspond to the frequency we are probing
     and for the mechanical mode corresponding to the difference between sideband and pump frequency.

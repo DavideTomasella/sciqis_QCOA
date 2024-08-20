@@ -38,7 +38,7 @@ class BaseCavitySolver(ABC):
         return 0
     
     @abstractmethod
-    def _calculate_time_evolution(self) -> tuple[Union[float, np.ndarray], Union[float, np.ndarray], Union[float, np.ndarray]]:
+    def _calculate_time_evolution(self) -> tuple[Union[float, np.ndarray], tuple[Union[float, np.ndarray]]]:
         """ 
         Get the cavity field time evolution from the cavity paramters and the model
         
@@ -49,7 +49,7 @@ class BaseCavitySolver(ABC):
         nb_m : float or np.ndarray
             The expectation of the number of phonons in the mechanical mode b_m.
         """
-        return 0, 0
+        return 0, 0, 0
 
     def solve_cavity_RT(self):
         """ Solve the cavity steady state solution
@@ -93,7 +93,7 @@ class BaseCavitySolver(ABC):
         T = np.abs(alpha_out2_s/self._alpha_in1_s) ** 2
         return self._omega_in1_s-self._omega_p, R, T
     
-    def solve_cavity_time_evolution(self) -> tuple[Union[float, np.ndarray], Union[float, np.ndarray], Union[float, np.ndarray]]:
+    def solve_cavity_time_evolution(self) -> tuple[Union[float, np.ndarray], Union[float, np.ndarray], tuple[Union[float, np.ndarray]]]:
         """ 
         Solve the cavity steady state solution while calculating the time evolution of the cavity field
         
@@ -108,9 +108,9 @@ class BaseCavitySolver(ABC):
         """
         if not self._configured:
             raise Exception("Solver not configured")
-        na_s, nb_m = self._calculate_time_evolution()
+        t, *list_n = self._calculate_time_evolution()
         # the number of photons and phonons is normalized to 1 photon coupled to the cavity per second
-        return self._delta_s, na_s, nb_m
+        return self._omega_in1_s-self._omega_p, t, list_n
     
     @abstractmethod
     def get_current_configuration(self):

@@ -10,6 +10,7 @@ from qtpy import uic
 from qtpy.QtCore import Slot
 from qtpy.QtCore import QObject
 from qtpy.QtGui import QPainter
+from qtpy.QtGui import QKeySequence
 from simulator_UI_autogen import Ui_Simulator
 import pyqtgraph as pg
 from pyqtgraph.exporters import ImageExporter, CSVExporter
@@ -19,6 +20,7 @@ import json
 from cavity_solver import BaseCavitySolver
 from analytical_cavity_solver import AnalyticalCavitySolver
 from quantum_optomechanical_cavity_solver import QuantumOptomechanicalCavitySolver
+from quantum_optical_cavity_solver import QuantumOpticalCavitySolver
 
 _use_autogen = False
 from simulator_UI_autogen import Ui_Simulator
@@ -106,6 +108,7 @@ class Simulator(QObject):
         # file and folder selection
         self._mw.F_folder_button.clicked.connect(self.onClk_browse_folders)
         self._mw.F_folder_button.setEnabled(1)
+        self._mw.F_folder_button.setShortcut("Ctrl+F")
         self._mw.F_file_button.clicked.connect(self.onClk_browse_files)
         self._mw.F_file_button.setEnabled(1)
         self._mw.F_file_name.editingFinished.connect(self.onChanged_file_name)
@@ -118,7 +121,11 @@ class Simulator(QObject):
         self._mw.RUN_start_button.setShortcut("Ctrl+R")
         # select sliders for the type of simulation and the sideband
         self._mw.T_sideband_select.valueChanged.connect(self.onChange_sideband_select)
+        sc1 = QtWidgets.QShortcut(QKeySequence('Ctrl+W'), self._mw)
+        sc1.activated.connect(lambda : self._mw.T_sideband_select.setValue(1-self._mw.T_sideband_select.value()))
         self._mw.T_model_select.valueChanged.connect(self.onChange_model_select)
+        sc2 = QtWidgets.QShortcut(QKeySequence('Ctrl+Q'), self._mw)
+        sc2.activated.connect(lambda : self._mw.T_model_select.setValue(1-self._mw.T_model_select.value()))
         # checkboxes for the configuration (enable/diable possible combinations)
         self._mw.C_use_optical.stateChanged.connect(self.onChange_use_optical_mode)
         self._mw.C_use_mech.stateChanged.connect(self.onChange_use_mechanical_mode)
@@ -191,7 +198,7 @@ class Simulator(QObject):
     @Slot()
     def onChange_use_quantum_time_evolution(self):
         """ Update the graphical elements when we are displaying the time evolution """
-        self.set_plot_axis()
+        #self.set_plot_axis()
         if self._mw.C_use_time_evolution.isChecked() and self._mw.T_model_select.value() == 0:
             raise ValueError('Cannot use the time evolution in classical mode')
     
@@ -268,7 +275,7 @@ class Simulator(QObject):
                 solver = QuantumOptomechanicalCavitySolver()
             else:
                 config["solver"] = "quantum_optical_cavity"
-                #solver = QuantumOpticalCavitySolver()
+                solver = QuantumOpticalCavitySolver()
         else:
             config["solver"] = "classical_cavity"
             solver = AnalyticalCavitySolver()
@@ -279,7 +286,7 @@ class Simulator(QObject):
                          scan_FSR_detuning=config["scan_FSR_detuning"],
                          scan_pump_power=config["scan_pump_power"],
                          use_bath=config["use_quantum_bath"],
-                         #use_time_evolution=config["use_time_evolution"],
+                         use_time_evolution=config["use_time_evolution"],
                          omega_p=3e8/(self._mw.C_omega_p_nm.value()/1e9),
                          kappa_ext1_s=self._mw.C_kappa_ext_1_MHz.value()*1e6,
                          kappa_ext2_s=self._mw.C_kappa_ext_1_MHz.value()*1e6,
@@ -296,7 +303,7 @@ class Simulator(QObject):
                          bath_T=self._mw.C_bath_K.value())
         config["solver_params"] = solver.get_current_configuration()
         if config["use_time_evolution"]:
-            self._mw.C_time_ms.setText("%.3f"%(config["solver_params"]["max_t_evolution"]*1e3))
+            self._mw.C_time_ms.setValue(config["solver_params"]["max_t_evolution"]*1e3)
 
         return solver, config
     
@@ -345,14 +352,18 @@ class Simulator(QObject):
         is_time_evolution : bool
             True if we are plotting the time evolution, False if we are plotting the reflectivity/transmissivity
         """
+        self._mw.plotwindow.clear()
         if is_time_evolution:
             # TODO define 3d data, maybe we have to keep 2 elements (_plot_curve and ...) and work with the visibility / remove them when needed
-            pass
+            xx, yy, list_zz = data
+            n_lines=10
+            cm=pg.colormap.get("viridis").getLookupTable(nPts=n_lines)
+            for nm,zz in enumerate(list_zz):
+                list_times=np.linspace(0, len(zz[0,:]), n_lines, endpoint=False, dtype=int)[::-1]
+                for i,t in enumerate(list_times):
+                    self._mw.plotwindow.plot(xx,zz[:,t], pen=pg.mkPen(cm[i], width=2, dash=None if nm==0 else [2, 4]))
         else:
-            frequencies = data[0]
-            reflectivity = data[1]
-            transmissivity = data[2]
-            self._mw.plotwindow.clear()
+            frequencies, reflectivity, transmissivity = data
             if len(reflectivity.shape) > 1:
                 cm=pg.colormap.get("viridis").getLookupTable(nPts=reflectivity.shape[0])
                 for i in range(reflectivity.shape[0]):
@@ -366,18 +377,17 @@ class Simulator(QObject):
     
     def set_plot_axis(self, is_time_evolution):
         """ Set the axis label for the plot """
+        viewBox=self._mw.plotwindow.getViewBox()
+        viewBox.updateAutoRange()
+        viewBox.enableAutoRange(axis='x', enable=True)
+        viewBox.enableAutoRange(axis='y', enable=True)
+        viewBox.setMouseEnabled(x=True, y=False)
+        self._mw.plotwindow.getAxis('left').setTextPen('k')
+        self._mw.plotwindow.getAxis('bottom').setTextPen('k')
         if is_time_evolution:
-            # TODO define 3d axis
-            self._mw.plotwindow.setLabel(axis='bottom', text='Time', units='s',pen='k')
+            self._mw.plotwindow.setLabel(axis='bottom', text='Frequency', units='Hz',pen='k')
             self._mw.plotwindow.setLabel(axis='left', text='Photon/Phonon population', units='',pen='k')
-        else:
-            viewBox=self._mw.plotwindow.getViewBox()
-            viewBox.updateAutoRange()
-            viewBox.enableAutoRange(axis='x', enable=True)
-            viewBox.enableAutoRange(axis='y', enable=True)
-            viewBox.setMouseEnabled(x=True, y=False)
-            self._mw.plotwindow.getAxis('left').setTextPen('k')
-            self._mw.plotwindow.getAxis('bottom').setTextPen('k')
+        else:            
             self._mw.plotwindow.setLabel(axis='bottom', text='Frequency', units='Hz',pen='k')
             self._mw.plotwindow.setLabel(axis='left', text='Reflected/Transmitted power', units='',pen='k')
 
@@ -398,8 +408,6 @@ class Simulator(QObject):
         exporter = ImageExporter(plot)
         exporter.parameters()['width'] = 2000
         exporter.export(filepath+"_plot.png")
-        # TODO for time evolution
-        # glview.grabFrameBuffer().save('fileName.png')
         print('Save data')
     
     def get_unique_filepath(self, extension="_data.txt"):

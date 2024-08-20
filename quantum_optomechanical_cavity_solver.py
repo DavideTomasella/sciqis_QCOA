@@ -76,37 +76,37 @@ class QuantumOptomechanicalCavitySolver(BaseCavitySolver):
         self._alpha_p = power_to_alpha(kwargs.get("power_p", 1e-3))
         # define the scan range for the plot.
         range_plot = max(3*self._kappa_s, 2*self._gamma_m)
-        self._omega_in1_s = np.linspace(self._omega_s - range_plot, self._omega_s + range_plot, 11)
+        self._omega_in1_s = np.linspace(self._omega_s - range_plot, self._omega_s + range_plot, 15)
         # improve visualization with small mechanical linewidth
         if self._gamma_m < 0.2*self._kappa_s:
             self._omega_in1_s = np.unique(np.sort(np.concatenate((self._omega_in1_s, 
-                                            np.linspace(self._omega_s - 1.5*self._kappa_s, self._omega_s + 1.5*self._kappa_s, 21),
+                                            np.linspace(self._omega_s - 0.4**self._kappa_s, self._omega_s + 0.4*self._kappa_s, 15),
                                                                   self._omega_p + (-1 if self._is_sideband_stokes else 1) *\
-                                  np.linspace(self._Omega_m - 3*self._gamma_m, self._Omega_m + 3*self._gamma_m, 21)))))
-        
+                                  np.linspace(self._Omega_m - 2.3*self._gamma_m, self._Omega_m + 2.3*self._gamma_m, 21)))))
+        else:
+            self._omega_in1_s = np.unique(np.sort(np.concatenate((self._omega_in1_s, 
+                                            np.linspace(self._omega_s - 0.7*self._kappa_s, self._omega_s + 0.7*self._kappa_s, 25)))))
         self._alpha_in1_s = np.sqrt(2*np.pi*self._kappa_ext1_s) # for numerial stability
         self._delta_s = self._omega_s - self._omega_in1_s
         self._delta_m = (self._omega_p - self._omega_in1_s) + (-1 if self._is_sideband_stokes else 1)*self._Omega_m
         #speed up the calculation far from the optical and mechanical resonance
-        close_m = np.abs(self._delta_m) < min(1.2*self._gamma_m , 0.2*self._kappa_s)
-        close_s = np.abs(self._delta_s) < max(self._kappa_s, self._gamma_m)
-        self._N = np.int32(4 + 2*close_s + 2*close_m)
-        self._N_m = np.int32(np.clip(4 + 2*close_s + 4*close_m + 6*close_m*self._is_sideband_stokes, a_min=np.round(0.5+2*self._n_bath_m), a_max=None))
-        self._max_t_evolution = max(15/self._kappa_s, 15/self._gamma_m)
+        close_m = np.abs(self._delta_m) < min(1.2*self._gamma_m, 0.2*self._kappa_s)
+        close_s = np.abs(self._delta_s) < (self._kappa_s+self._gamma_m)
+        self._N = np.int32(4 + 3*close_s + 1*close_m + 4*close_m*self._is_sideband_stokes)
+        self._N_m = np.int32(np.clip(4 + 2*close_s + 6*close_m + 4*close_m*self._is_sideband_stokes, a_min=np.round(0.5+2*self._n_bath_m), a_max=None))
+        if kwargs.get("use_time_evolution", False):
+            self._max_t_evolution = max(2/self._kappa_s, 2/(max(0.3*self._kappa_s,self._gamma_m)))
+        else:
+            self._max_t_evolution = max(15/self._kappa_s, 15/self._gamma_m)
         self._configured = True
 
     def _calculate_cavity_field(self) -> Union[float, np.ndarray]:
         """ 
-        Get the steady-state solution for cavity standing wave field from the cavity parameters and the model.
-        I don't care about the rotating wave approximation used because I have delta_s and delta_m that represent the difference compare to the cavity modes, 
-        i.e., I'm deriving the spectrum of the envelope of the cavity field.
-        The analytical model is based on Kharel et al.'s  paper doi:10.1126/sciadv.aav0582.
+        Calculate the steady state field of an optomechanical cavity with the Master Equation Solver.
         ```
-                        sqrt(kappa_in1_s) * alpha_in1_s  
-                -------------------------------------------------
-        <a_s> =                             G0^2 * |alpha_p|^2     with ∓ depending if it is stokes or anti-stokes sideband
-                 i*delta_s + kappa_s/2 + -----------------------
-                                          i*delta_m ∓ gamma_m/2
+            H = delta_s * a.dag() * a + delta_m * b.dag() * b - G_0 * abs(alpha_p) * (a.dag() * b + a * b.dag()) + 1j * sqrt(kappa_ext1_s) * alpha_in1_s * (a.dag() - a)
+                                                                G_0 * abs(alpha_p) * (a.dag() * b.dag() + a * b)
+            L = [sqrt(kappa_s) * a, sqrt(gamma_m * (n_th + 1)) * b, sqrt(gamma_m * n_th) * b.dag()]
         from the previous rotating wave approximation:
             delta_s = omega_s - omega_in1_s
             delta_m = (omega_p - omega_in1_s) ∓ Omega_m depending if it is stokes or anti-stokes sideband
@@ -119,6 +119,7 @@ class QuantumOptomechanicalCavitySolver(BaseCavitySolver):
             complex amplitude of the sideband field of the cavity
         """
 
+        t = np.linspace(0, self._max_t_evolution, 800)
         a_ss = np.zeros_like(self._omega_in1_s, np.complex128)
         for i in range(len(self._omega_in1_s)):
             # init fields
@@ -133,7 +134,6 @@ class QuantumOptomechanicalCavitySolver(BaseCavitySolver):
             # delta_m = omega_m - (1 if is_sideband_stokes else -1)*(omega_p-omega_in1_s)
             free_evolution = 2*np.pi*self._delta_s[i]*n_a + 2*np.pi*self._delta_m[i]*n_b
             incoupling_fields = 1j*np.sqrt(2*np.pi*self._kappa_ext1_s)*self._alpha_in1_s*(a.dag()-a)
-            #interaction = GO*abs(alpha_p)*(a.dag()+a)*(b.dag()+b)
             interaction = -2*np.pi*self._G0*abs(self._alpha_p)*(a.dag()*b.dag() + a*b if self._is_sideband_stokes else a.dag()*b + a*b.dag())
             decay_channel_a = np.sqrt(2*np.pi*self._kappa_s)*a
             decay_channel_b = np.sqrt(2*np.pi*self._gamma_m*(self._n_bath_m+1))*b
@@ -142,7 +142,6 @@ class QuantumOptomechanicalCavitySolver(BaseCavitySolver):
             Hamiltonian = free_evolution + incoupling_fields + interaction
             collapse_operators = [decay_channel_a,decay_channel_b,decay_channel_b_dag]
 
-            t = np.linspace(0, self._max_t_evolution, 1200)
             # init vacuum state
             rho_0 = tensor(coherent(self._N[i],0),coherent(self._N_m[i],self._n_bath_m))
             # solve time evolution with master equation
@@ -156,9 +155,64 @@ class QuantumOptomechanicalCavitySolver(BaseCavitySolver):
 
         return a_ss
     
-    def _calculate_time_evolution(self) -> tuple[Union[float, np.ndarray], Union[float, np.ndarray]]:
-        """ Get the cavity field time evolution from the cavity paramters and the model"""
-        raise NotImplementedError
+    def _calculate_time_evolution(self) -> tuple[Union[float, np.ndarray], tuple[Union[float, np.ndarray]]]:
+        """ Get the cavity field time evolution from the cavity paramters and the model
+        ```
+            H = delta_s * a.dag() * a + delta_m * b.dag() * b - G_0 * abs(alpha_p) * (a.dag() * b + a * b.dag()) + 1j * sqrt(kappa_ext1_s) * alpha_in1_s * (a.dag() - a)
+                                                                G_0 * abs(alpha_p) * (a.dag() * b.dag() + a * b)
+            L = [sqrt(kappa_s) * a, sqrt(gamma_m * (n_th + 1)) * b, sqrt(gamma_m * n_th) * b.dag()]
+        from the previous rotating wave approximation:
+            delta_s = omega_s - omega_in1_s
+            delta_m = (omega_p - omega_in1_s) ∓ Omega_m depending if it is stokes or anti-stokes sideband
+        thus the steady state for the input field with amplitude is simply alpha_in1_s
+        ```
+    
+        Returns
+        --------
+        t: (np.ndarray)
+            time array for the time evolution of the system
+        populations: (tuple(np.ndarray))
+            tuple of the different mode expected population over time. Each element is a 2d np.ndarray (frequencies x time)
+        """
+
+        t = np.linspace(0, self._max_t_evolution, 800)
+        list_n_a_me = np.zeros([len(self._omega_in1_s),len(t)], np.float32)
+        list_n_b_me = np.zeros([len(self._omega_in1_s),len(t)], np.float32)
+        for i in range(len(self._omega_in1_s)):
+            # init fields
+            a = tensor(destroy(self._N[i]), qeye(self._N_m[i]))
+            b = tensor(qeye(self._N[i]), destroy(self._N_m[i]))
+            n_a = a.dag()*a
+            n_b = b.dag()*b
+
+            # Rotating wave approximation with the input field that correspond to the frequency we are probing
+            # and for the mechanical mode, to the difference between sideband and mechanical frequency
+            # delta_s = omega-omega_in1
+            # delta_m = omega_m - (1 if is_sideband_stokes else -1)*(omega_p-omega_in1_s)
+            free_evolution = 2*np.pi*self._delta_s[i]*n_a + 2*np.pi*self._delta_m[i]*n_b
+            incoupling_fields = 1j*np.sqrt(2*np.pi*self._kappa_ext1_s)*self._alpha_in1_s*(a.dag()-a)
+            interaction = -2*np.pi*self._G0*abs(self._alpha_p)*(a.dag()*b.dag() + a*b if self._is_sideband_stokes else a.dag()*b + a*b.dag())
+            decay_channel_a = np.sqrt(2*np.pi*self._kappa_s)*a
+            decay_channel_b = np.sqrt(2*np.pi*self._gamma_m*(self._n_bath_m+1))*b
+            decay_channel_b_dag = np.sqrt(2*np.pi*self._gamma_m*self._n_bath_m)*b.dag()
+
+            Hamiltonian = free_evolution + incoupling_fields + interaction
+            collapse_operators = [decay_channel_a,decay_channel_b,decay_channel_b_dag]
+
+            # init vacuum state
+            rho_0 = tensor(coherent(self._N[i],0),coherent(self._N_m[i],self._n_bath_m))
+            # solve time evolution with master equation
+            result = mesolve(Hamiltonian, rho_0, t, collapse_operators, [a,n_a,n_b])
+            a_me,n_a_me,n_b_me = result.expect
+            list_n_a_me[i,:] = n_a_me
+            list_n_b_me[i,:] = n_b_me
+            n_a_ss = np.mean(n_a_me[-10:])
+            n_b_ss = np.mean(n_b_me[-10:])
+            print(np.max(n_a_me),np.max(n_b_me))
+            print(f"MESolver({self._N[i]},{self._N_m[i]}) {i+1}/{len(self._omega_in1_s)}: n_a={n_a_ss}, n_b={n_b_ss}")
+
+        return t, list_n_a_me, list_n_b_me
+
 
     def solve_cavity_RT(self):
         """ Solve the cavity steady state solution
@@ -216,5 +270,8 @@ class QuantumOptomechanicalCavitySolver(BaseCavitySolver):
             "delta_m": self._delta_m,
             "G0": self._G0,
             "n_bath_m": self._n_bath_m,
+            "max_t_evolution": self._max_t_evolution,
+            "N": self._N,
+            "N_m": self._N_m
         }
         return config
