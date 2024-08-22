@@ -25,34 +25,6 @@ from quantum_optical_cavity_solver import QuantumOpticalCavitySolver
 _use_autogen = False
 from simulator_UI_autogen import Ui_Simulator
 
-class Simulator_MainWindow_Autogen(QtWidgets.QMainWindow,Ui_Simulator):
-    """
-    The main window for the cavity control GUI. 
-    It extends the standard QMainWindow, but it also inherit the method setupUi() 
-    form the autogen file we can create with pyuic5.
-    
-    To generate the gui from the .ui file:
-     - move to the directory where the .ui file is located
-     - execute the command: pyuic5 simulator_UI.ui -o simulator_UI_autogen.py
-    """
-
-    def __init__(self):
-        # Init autogen class
-        super(Simulator_MainWindow_Autogen,self).__init__()
-        # Load the UI
-        self.setupUi(self)
-
-class Simulator_MainWindow(QtWidgets.QMainWindow):
-    """
-    The main window for the cavity control GUI. 
-    It extends the standard QMainWindow
-    """
-
-    def __init__(self):
-        super().__init__()
-        # Load the UI
-        uic.loadUi('./simulator_UI.ui', self)
-
 
 class Simulator(QObject):
     """
@@ -74,9 +46,9 @@ class Simulator(QObject):
         """
         # setting up main window
         if _use_autogen:
-            self._mw = Simulator_MainWindow_Autogen()
+            self._mw = Simulator.Simulator_MainWindow_Autogen()
         else:
-            self._mw = Simulator_MainWindow()
+            self._mw = Simulator.Simulator_MainWindow()
 
         self.init_GUI_elements()
         self.init_plot()
@@ -434,6 +406,36 @@ class Simulator(QObject):
 
         filePath = os.path.join(dir,filename+'{:06d}'.format(num_file))
         return filePath
+    
+        
+    class Simulator_MainWindow_Autogen(QtWidgets.QMainWindow,Ui_Simulator):
+        """
+        The main window for the cavity control GUI. 
+        It extends the standard QMainWindow, but it also inherit the method setupUi() 
+        form the autogen file we can create with pyuic5.
+        
+        To generate the gui from the .ui file:
+        - move to the directory where the .ui file is located
+        - execute the command: pyuic5 simulator_UI.ui -o simulator_UI_autogen.py
+        """
+
+        def __init__(self):
+            # Init autogen class
+            super(Simulator.Simulator_MainWindow_Autogen,self).__init__()
+            # Load the UI
+            self.setupUi(self)
+
+    class Simulator_MainWindow(QtWidgets.QMainWindow):
+        """
+        The main window for the cavity control GUI. 
+        It extends the standard QMainWindow
+        """
+
+        def __init__(self):
+            super().__init__()
+            # Load the UI
+            uic.loadUi('./simulator_UI.ui', self)
+
     
     class NumpyEncoder(json.JSONEncoder):
         def default(self, obj):

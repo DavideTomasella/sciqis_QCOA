@@ -540,7 +540,7 @@
                   <double>0.001000000000000</double>
                  </property>
                  <property name="value">
-                  <double>12.000000000000000</double>
+                  <double>12.000200000000000</double>
                  </property>
                 </widget>
                </item>
@@ -940,7 +940,7 @@
                   <double>0.100000000000000</double>
                  </property>
                  <property name="value">
-                  <double>-3.000000000000000</double>
+                  <double>-1.000000000000000</double>
                  </property>
                 </widget>
                </item>
@@ -1006,7 +1006,7 @@
                   <double>0.100000000000000</double>
                  </property>
                  <property name="value">
-                  <double>3.000000000000000</double>
+                  <double>1.000000000000000</double>
                  </property>
                 </widget>
                </item>
@@ -1193,7 +1193,7 @@
                   <double>0.100000000000000</double>
                  </property>
                  <property name="value">
-                  <double>20.000000000000000</double>
+                  <double>0.150000000000000</double>
                  </property>
                 </widget>
                </item>
@@ -2332,7 +2332,7 @@ QSlider::handle:horizontal {
      <x>0</x>
      <y>0</y>
      <width>1010</width>
-     <height>16</height>
+     <height>20</height>
     </rect>
    </property>
   </widget>
