@@ -80,7 +80,7 @@ class QuantumOptomechanicalCavitySolver(BaseCavitySolver):
         # improve visualization with small mechanical linewidth
         if self._gamma_m < 0.2*self._kappa_s:
             self._omega_in1_s = np.unique(np.sort(np.concatenate((self._omega_in1_s, 
-                                            np.linspace(self._omega_s - 0.4**self._kappa_s, self._omega_s + 0.4*self._kappa_s, 15),
+                                            np.linspace(self._omega_s - 0.4*self._kappa_s, self._omega_s + 0.4*self._kappa_s, 15),
                                                                   self._omega_p + (-1 if self._is_sideband_stokes else 1) *\
                                   np.linspace(self._Omega_m - 2.3*self._gamma_m, self._Omega_m + 2.3*self._gamma_m, 21)))))
         else:

@@ -7,8 +7,10 @@
 
 ## Package requirements
  To execute the project, you need to intall the following packages with `pip install`:
+ - python=3.11.9
  - qutip
  - pyqt5
+ - qtpy
  - pyqtgraph
 
  Alternative, one can create a conda environment with `conda env create --name your_name --file=conda_environment.yml`
