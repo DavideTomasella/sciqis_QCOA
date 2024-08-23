@@ -71,6 +71,7 @@ class QuantumOpticalCavitySolver(BaseCavitySolver):
         self._N = np.int32(4 + 2*close_s)
         self._N_m = np.int32(4 + 2*close_s)
         if kwargs.get("use_time_evolution", False):
+            # NOTE we clip the time evolution for better plotting!
             self._max_t_evolution = 2/self._kappa_s
         else:
             self._max_t_evolution = 10/self._kappa_s

@@ -95,9 +95,10 @@ class QuantumOptomechanicalCavitySolver(BaseCavitySolver):
         self._N = np.int32(4 + 3*close_s + 1*close_m + 4*close_m*self._is_sideband_stokes)
         self._N_m = np.int32(np.clip(4 + 2*close_s + 6*close_m + 4*close_m*self._is_sideband_stokes, a_min=np.round(0.5+2*self._n_bath_m), a_max=None))
         if kwargs.get("use_time_evolution", False):
+            # NOTE we clip the time evolution for better plotting!
             self._max_t_evolution = max(2/self._kappa_s, 2/(max(0.3*self._kappa_s,self._gamma_m)))
         else:
-            self._max_t_evolution = max(15/self._kappa_s, 15/self._gamma_m)
+            self._max_t_evolution = max(10/self._kappa_s, 10/self._gamma_m)
         self._configured = True
 
     def _calculate_cavity_field(self) -> Union[float, np.ndarray]:
