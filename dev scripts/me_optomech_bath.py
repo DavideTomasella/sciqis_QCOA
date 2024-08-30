@@ -184,7 +184,7 @@ def get_steady_state_field_optomechanical_cavity(delta_s, kappa_ext1_s, kappa_s,
     decay_channel_b_dag = np.sqrt(gamma_m*n_th_m)*b.dag()
 
     Hamiltonian = free_evolution + incoupling_fields + interaction
-    collapse_operators = [decay_channel_a,decay_channel_b]
+    collapse_operators = [decay_channel_a,decay_channel_b,decay_channel_b_dag]
 
     if calculate_time_evolution:
         # time evolution, the time array length considers the decay rate of the cavity to know when we reach the staedy state
@@ -229,24 +229,24 @@ if __name__=="__main__":
     def get_axis_values(values, n=5):
         return np.linspace(min(values), max(values), n), ["%.4f"%(i/1e9) for i in np.linspace(min(values), max(values), n)]
     # Test the analytical model
-    is_sideband_stokes = True
+    is_sideband_stokes = False
     lambda_to_omega = lambda l: 2 * np.pi * 3e8 / l
     kappa_ext1_s = 1e6
     kappa_ext2_s = 1e6
     kappa_s = kappa_ext1_s + kappa_ext2_s + 1e6
     omega_p = lambda_to_omega(1550e-9)
-    omega_s = omega_p + (-1 if is_sideband_stokes else 1) * 12.000_08e9 #+ np.linspace(-8e6, 8e6, 10).reshape(-1,1)
-    omega_in1_s = omega_s + np.linspace(-2e5, 2e5, 21)
+    omega_s = omega_p + (-1 if is_sideband_stokes else 1) * 12.000_8e9 #+ np.linspace(-8e6, 8e6, 10).reshape(-1,1)
+    omega_in1_s = omega_s + np.linspace(-2e6, 2e6, 21)
     alpha_p = 7e2*(1 if is_sideband_stokes else 3) #* np.linspace(0,1.2,6).reshape(-1,1)
     G_0 = 100
     Omega_m = 12e9
     gamma_m = 3e4
-    n_th_m = 1
+    n_th_m = 0.37
 
     #r=reflectivity_ss_sideband(omega_in1_s, kappa_ext1_s, omega_s, kappa_s, omega_p, alpha_p, G_0, Omega_m, gamma_m, n_th_m,
     #                           is_sideband_stokes, N=5, N_m=10)
     t=transmittivity_ss_sideband(omega_in1_s, kappa_ext1_s, kappa_ext2_s, omega_s, kappa_s, omega_p, alpha_p, G_0, Omega_m, gamma_m, n_th_m,
-                                 is_sideband_stokes, N=5, N_m=15)
+                                 is_sideband_stokes, N=5, N_m=10)
 
     #plt.plot(omega_in1_s.T-omega_p, r.T, "--",label='Reflectivity')
     plt.plot(omega_in1_s.T-omega_p, t.T, label='Transmissivity')

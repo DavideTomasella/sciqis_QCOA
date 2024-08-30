@@ -6,6 +6,8 @@ Author: D. Tomasella
 # In[]
 import numpy as np
 from qutip import *
+from odeintw import odeintw
+from scipy.optimize import minimize
 
 def reflectivity_ss_sideband(omega_in1_s, kappa_ext1_s, omega_s, kappa_s, omega_p, alpha_p, G_0, Omega_m, gamma_m, is_sideband_stokes=True, N=10, N_m=10):
     """
@@ -191,22 +193,54 @@ def get_steady_state_field_optomechanical_cavity(delta_s, kappa_ext1_s, kappa_s,
         # init vacuum state
         rho_0 = tensor(coherent(N,2e-4),coherent(N_m,5e-4))
         # solve time evolution with master equation
-        result = mesolve(Hamiltonian, rho_0, t, collapse_operators, [a,num_a,b,num_b])
-        a_me, num_a_me, b_me, num_b_me = result.expect
-        if False:
+        result = mesolve(Hamiltonian, rho_0, t, collapse_operators, [a,num_a,b,num_b, a*b.dag()])
+        a_me, num_a_me, b_me, num_b_me,ab = result.expect
+        if True:
             result_mc = mcsolve(Hamiltonian, rho_0, t, collapse_operators, [a,num_a,b,num_b], ntraj=10)
             a_mc, num_a_mc, b_mc, num_b_mc = result_mc.expect
             #rho_ss = steadystate(Hamiltonian, collapse_operators)
             #num_a_ss = expect(num_a, rho_ss)
             #num_b_ss = expect(num_b, rho_ss)
+
+            #calculate evolution with langevin equations
+            n_th=0
+            n_p = abs(alpha_p)**2
+            def model(vars, t):
+                n_s, n_m = vars
+                n_s = max(n_s,0)
+                n_m = max(n_m,0)
+                n_s_dt=-kappa_s*n_s+kappa_ext1_s/(kappa_s**2/4+delta_s**2)*kappa_s*abs(alpha_in1_s)**2+kappa_s*G_0**2/(kappa_s**2/4+delta_s**2)*n_m*n_p
+                n_m_dt=-gamma_m*n_m+gamma_m*n_th+(1 if is_sideband_stokes else -1)*gamma_m*G_0**2/(gamma_m**2/4+delta_m**2)*n_s*n_p
+                return [n_m_dt, n_s_dt]
+            
+            
+            #solve the system for the steady state
+            def func(x):
+                n_s,n_m=x
+                new_n_s = kappa_ext1_s/(kappa_s**2/4+delta_s**2)*abs(alpha_in1_s)**2+G_0**2/(kappa_s**2/4+delta_s**2)*n_m*n_p
+                new_n_m = n_th+(1 if is_sideband_stokes else -1)*G_0**2/(gamma_m**2/4+delta_m**2)*n_s*n_p
+                return np.linalg.norm([n_s-new_n_s, n_m-new_n_m])
+
+            n_s_0,n_m_0=2e-4,5e-4
+            solution, infodict = odeintw(model, [n_s_0,n_m_0], t, full_output=True)
+
+            steadysolution = minimize(func, [n_s_0,n_m_0])
+            print(steadysolution)
             # You have to check that the time evolution is converging to the steady state
             import matplotlib.pyplot as plt
             plt.plot(t, num_a_me)
+            plt.plot(t, abs(a_me)**2, "--")
             plt.plot(t, num_b_me)
+            plt.plot(t, abs(b_me)**2, "--")
             plt.plot(t, num_a_mc)
             plt.plot(t, num_b_mc)
+            plt.plot(t, ab, "--")
+            plt.plot(t, a_me*b_me, ":")
+            plt.plot(t, t*0+steadysolution["x"][0], label='ns(t)')
+            plt.plot(t, t*0+steadysolution["x"][1], label='nm(t)')
             #plt.plot(t, [num_a_ss]*len(t))
             #plt.plot(t, [num_b_ss]*len(t))
+            plt.legend()
             plt.show()
         a_ss = np.mean(a_me[-10:])
         num_a_ss = np.mean(num_a_me[-10:])
@@ -228,15 +262,15 @@ if __name__=="__main__":
     def get_axis_values(values, n=5):
         return np.linspace(min(values), max(values), n), ["%.4f"%(i/1e9) for i in np.linspace(min(values), max(values), n)]
     # Test the analytical model
-    is_sideband_stokes = True
+    is_sideband_stokes = False
     lambda_to_omega = lambda l: 2 * np.pi * 3e8 / l
     kappa_ext1_s = 1e6
     kappa_ext2_s = 1e6
     kappa_s = kappa_ext1_s + kappa_ext2_s + 1e6
     omega_p = lambda_to_omega(1550e-9)
     omega_s = omega_p + (-1 if is_sideband_stokes else 1) * 12.0008e9 #+ np.linspace(-8e6, 8e6, 10).reshape(-1,1)
-    omega_in1_s = omega_s + np.linspace(-1e7, 1e7, 101)
-    alpha_p = 7e3*(1 if is_sideband_stokes else 3) #* np.linspace(0,1.2,6).reshape(-1,1)
+    omega_in1_s = omega_s + np.linspace(-2e6, 2e6, 11)
+    alpha_p = 7e2*(1 if is_sideband_stokes else 3) #* np.linspace(0,1.2,6).reshape(-1,1)
     G_0 = 100
     Omega_m = 12e9
     gamma_m = 1e6

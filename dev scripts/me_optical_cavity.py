@@ -153,13 +153,15 @@ def get_steady_state_field_optical_cavity(omega, omega_in1, kappa, kappa_ext1, a
         # solve time evolution with master equation
         result = mesolve(Hamiltonian, rho_0, t, collapse_operators, [a,num_a])
         a_me, num_a_me = result.expect
-        if False:
+        if True:
             result_mc = mcsolve(Hamiltonian, rho_0, t, collapse_operators, [a,num_a], ntraj=5)
             a_mc, num_a_mc = result_mc.expect
             # You have to check that the time evolution is converging to the steady state
             import matplotlib.pyplot as plt
             plt.plot(t, num_a_me)
+            plt.plot(t, abs(a_me)**2)
             plt.plot(t, num_a_mc)
+            plt.plot(t, abs(a_mc)**2)
             plt.show()
         a_ss = a_me[-1]
         num_a_ss = num_a_me[-1]
