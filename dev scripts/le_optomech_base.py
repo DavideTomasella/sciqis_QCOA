@@ -8,6 +8,26 @@ import numpy as np
 from qutip import *
 import sympy as sp
 from odeintw import odeintw
+from scipy.optimize import fsolve
+
+def fsolvew(func, x0, t, args=(), **kwargs):
+    """An fsolve-like function for complex valued functions."""
+
+    # Make sure x0 is a numpy array of type np.complex128.
+    x0 = np.array(x0, dtype=np.complex128, ndmin=1)
+
+    def realfunc(x, t, *args):
+        z = x.view(np.complex128)
+        f = func(z, t, *args)
+        # func might return a python list, so convert its return
+        # value to an array with type np.complex128, and then return
+        # a np.float64 view of that array.
+        return np.asarray(f, dtype=np.complex128).view(np.float64)
+
+    result = fsolve(realfunc, x0.view(np.float64), args=(t,*args), **kwargs)
+
+    return result.view(np.complex128)
+
 def reflectivity_ss_sideband(omega_in1_s, kappa_ext1_s, omega_s, kappa_s, omega_p, alpha_p, G_0, Omega_m, gamma_m, is_sideband_stokes=True, N=10, N_m=10):
     """
     Calculate the reflectivity spectrum of an optomechanical cavity with the Master Equation Solver.
@@ -53,8 +73,8 @@ def reflectivity_ss_sideband(omega_in1_s, kappa_ext1_s, omega_s, kappa_s, omega_
     alpha_out1_s = np.zeros_like(omega_in1_s, np.complex128)
     for i,o_in in enumerate(omega_in1_s):
         a_s, _ = get_steady_state_field_optomechanical_cavity(omega_s-o_in, kappa_ext1_s, kappa_s, alpha_in1_s, alpha_p, G_0, 
-                                                                                                             (omega_p-o_in)+(-1 if is_sideband_stokes else 1)*Omega_m, gamma_m,
-                                                                                                             is_sideband_stokes=is_sideband_stokes, N=N, N_m=N_m, calculate_time_evolution=True)
+                                                              (omega_p-o_in)+(-1 if is_sideband_stokes else 1)*Omega_m, gamma_m,
+                                                              is_sideband_stokes=is_sideband_stokes, N=N, N_m=N_m, calculate_time_evolution=False)
         alpha_out1_s[i] = alpha_in1_s - np.sqrt(kappa_ext1_s) * a_s
     return np.abs(alpha_out1_s/alpha_in1_s) ** 2
 
@@ -107,8 +127,8 @@ def transmittivity_ss_sideband(omega_in1_s, kappa_ext1_s, kappa_ext2_s, omega_s,
     a_p = np.zeros_like(omega_in1_s, np.complex128)
     for i,o_in in enumerate(omega_in1_s):
         a_s, a_p[i] = get_steady_state_field_optomechanical_cavity(omega_s-o_in, kappa_ext1_s, kappa_s, alpha_in1_s, alpha_p, G_0, 
-                                                                                               (omega_p-o_in)+(-1 if is_sideband_stokes else 1)*Omega_m, gamma_m, 
-                                                                                               is_sideband_stokes=is_sideband_stokes, N=N, N_m=N_m, calculate_time_evolution=True)
+                                                                   (omega_p-o_in)+(-1 if is_sideband_stokes else 1)*Omega_m, gamma_m, 
+                                                                   is_sideband_stokes=is_sideband_stokes, N=N, N_m=N_m, calculate_time_evolution=False)
         alpha_out1_s[i] = np.sqrt(kappa_ext2_s) * a_s
     return np.abs(alpha_out1_s/alpha_in1_s) ** 2, a_p
 
@@ -194,7 +214,7 @@ def get_steady_state_field_optomechanical_cavity(delta_s, kappa_ext1_s, kappa_s,
         return [dbm_dt, das_dt, dap_dt]
     print(delta_s, delta_m)
 
-    if True:# calculate_time_evolution:
+    if calculate_time_evolution:
         # time evolution, the time array length considers the decay rate of the cavity to know when we reach the staedy state
         t = np.linspace(0, max(15/kappa_s,15/gamma_m), 1200)
         # init fields
@@ -254,11 +274,12 @@ def get_steady_state_field_optomechanical_cavity(delta_s, kappa_ext1_s, kappa_s,
         num_b_m_ss, num_a_s_ss, num_a_p_ss = np.mean(num_b_m_le[-10:]), np.mean(num_a_s_le[-10:]), np.mean(num_a_p_le[-10:])
     else:
         # calculate the steady state solution of the Lindbladian problem and the expectations
-        rho_ss = steadystate(Hamiltonian, collapse_operators)
-        a_ss = expect(a, rho_ss)
-        num_a_ss = expect(num_a, rho_ss)
-        b_ss = expect(b, rho_ss)
-        num_b_ss = expect(num_b, rho_ss)
+        init_fields = np.complex128([0, 0, alpha_p])
+        args = (delta_m, gamma_m, G_0, delta_p, kappa_p, kappa_ext1_p, alpha_in1_p, delta_s, kappa_s, kappa_ext1_s, alpha_in1_s)
+        # solve time evolution with langevin equations
+        solution = fsolvew(model, init_fields, t=0, args=args)        
+        b_m_ss, a_s_ss, a_p_ss = solution[0], solution[1], solution[2]
+        num_b_m_ss, num_a_s_ss, num_a_p_ss = np.abs(b_m_ss)**2, np.abs(a_s_ss)**2, np.abs(a_p_ss)**2
     print("Steady state cavity field: %.4e pump photons, %.4e photons and %.4e phonons" % (num_a_p_ss, num_a_s_ss, num_b_m_ss))
     return a_s_ss , a_p_ss
 
@@ -274,7 +295,7 @@ if __name__=="__main__":
     kappa_ext2_s = 1e6
     kappa_s = kappa_ext1_s + kappa_ext2_s + 1e6
     omega_p = lambda_to_omega(1550e-9)
-    omega_s = omega_p + (-1 if is_sideband_stokes else 1) * 12.0004e9 #+ np.linspace(-8e6, 8e6, 10).reshape(-1,1)
+    omega_s = omega_p + (-1 if is_sideband_stokes else 1) * 12.000e9 #+ np.linspace(-8e6, 8e6, 10).reshape(-1,1)
     omega_in1_s = omega_s + np.linspace(-1e6, 1e6, 101)
     alpha_p = 7e3*(1 if is_sideband_stokes else 3) #* np.linspace(0,1.2,6).reshape(-1,1)
     G_0 = 100
