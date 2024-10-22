@@ -39,15 +39,16 @@ def odeintz(func, z0, t, **kwargs):
 a, b, c, d, e, f = -1.1, -10, -2+1j*10, 0.3, 0.2,100  # Example values
 
 # System of equations
-def model(vars, t, a, b, c, d, e, f):
+def model(vars, t, *args):
     x, y, z = vars
+    a, b, c, d, e, f = args
     dxdt = -1j*5*x+a*x +(a+1)*x.conjugate()+ f*y.conjugate()*z
     dydt = b*y + f*x.conjugate()*z+d
     dzdt = c*z + f*x.conjugate()*y.conjugate()+e
     return [dxdt, dydt, dzdt]
 
 # Initial conditions
-initial_conditions = [0, 0, 1j*0]
+initial_conditions = np.complex128([0, 0, 0])
 t = np.linspace(0, 10, 1000)  # Time from 0 to 10
 
 # Solving the system

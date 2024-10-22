@@ -17,8 +17,8 @@ eq3 = Eq(Derivative(z, t), c*z - y*x)
 
 #steady state solution solver
 d_eq1 = Eq(0, a*x - y)
-d_eq2 = Eq(0, b*y - x+d)
-d_eq3 = Eq(0, 0*c*z - 0*y*x+e)
+d_eq2 = Eq(0, b*y - x*z+d)
+d_eq3 = Eq(0, c*z - y*x+e)
 # Solve the system of equations
 solution = solve([d_eq1, d_eq2, d_eq3], (x, y, z))
 pprint(solution,wrap_line=False)

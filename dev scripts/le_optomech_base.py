@@ -7,6 +7,7 @@ Author: D. Tomasella
 import numpy as np
 from qutip import *
 import sympy as sp
+from odeintw import odeintw
 def reflectivity_ss_sideband(omega_in1_s, kappa_ext1_s, omega_s, kappa_s, omega_p, alpha_p, G_0, Omega_m, gamma_m, is_sideband_stokes=True, N=10, N_m=10):
     """
     Calculate the reflectivity spectrum of an optomechanical cavity with the Master Equation Solver.
@@ -51,10 +52,10 @@ def reflectivity_ss_sideband(omega_in1_s, kappa_ext1_s, omega_s, kappa_s, omega_
     alpha_in1_s = np.sqrt(kappa_ext1_s)
     alpha_out1_s = np.zeros_like(omega_in1_s, np.complex128)
     for i,o_in in enumerate(omega_in1_s):
-        alpha_out1_s[i] = alpha_in1_s - np.sqrt(kappa_ext1_s) * get_steady_state_field_optomechanical_cavity(omega_s-o_in, kappa_ext1_s, kappa_s, alpha_in1_s, alpha_p, G_0, 
+        a_s, _ = get_steady_state_field_optomechanical_cavity(omega_s-o_in, kappa_ext1_s, kappa_s, alpha_in1_s, alpha_p, G_0, 
                                                                                                              (omega_p-o_in)+(-1 if is_sideband_stokes else 1)*Omega_m, gamma_m,
                                                                                                              is_sideband_stokes=is_sideband_stokes, N=N, N_m=N_m, calculate_time_evolution=True)
-
+        alpha_out1_s[i] = alpha_in1_s - np.sqrt(kappa_ext1_s) * a_s
     return np.abs(alpha_out1_s/alpha_in1_s) ** 2
 
 
@@ -103,12 +104,13 @@ def transmittivity_ss_sideband(omega_in1_s, kappa_ext1_s, kappa_ext2_s, omega_s,
     """
     alpha_in1_s = np.sqrt(kappa_ext1_s)
     alpha_out1_s = np.zeros_like(omega_in1_s, np.complex128)
+    a_p = np.zeros_like(omega_in1_s, np.complex128)
     for i,o_in in enumerate(omega_in1_s):
-        alpha_out1_s[i] = np.sqrt(kappa_ext2_s) * get_steady_state_field_optomechanical_cavity(omega_s-o_in, kappa_ext1_s, kappa_s, alpha_in1_s, alpha_p, G_0, 
+        a_s, a_p[i] = get_steady_state_field_optomechanical_cavity(omega_s-o_in, kappa_ext1_s, kappa_s, alpha_in1_s, alpha_p, G_0, 
                                                                                                (omega_p-o_in)+(-1 if is_sideband_stokes else 1)*Omega_m, gamma_m, 
                                                                                                is_sideband_stokes=is_sideband_stokes, N=N, N_m=N_m, calculate_time_evolution=True)
-
-    return np.abs(alpha_out1_s/alpha_in1_s) ** 2
+        alpha_out1_s[i] = np.sqrt(kappa_ext2_s) * a_s
+    return np.abs(alpha_out1_s/alpha_in1_s) ** 2, a_p
 
 
 def get_steady_state_field_optomechanical_cavity(delta_s, kappa_ext1_s, kappa_s, alpha_in1_s, alpha_p, G_0, delta_m, gamma_m, 
@@ -159,64 +161,97 @@ def get_steady_state_field_optomechanical_cavity(delta_s, kappa_ext1_s, kappa_s,
         complex amplitude of the stokes cavity field (steady state solution)
     """
 
-    if kappa_ext1_s > kappa_s:
-        raise ValueError("The external coupling rate must be smaller than the total cavity decay rate.")
-    if abs(alpha_in1_s)**2/kappa_s > N/2 or abs(alpha_in1_s)**2/kappa_s*G_0*abs(alpha_p)/gamma_m > N_m/2:
-        raise ValueError("Warning: The input field is too large for the given Hilbert space dimension.")
+    #if kappa_ext1_s > kappa_s:
+    #    raise ValueError("The external coupling rate must be smaller than the total cavity decay rate.")
+    #if abs(alpha_in1_s)**2/kappa_s > N/2 or abs(alpha_in1_s)**2/kappa_s*G_0*abs(alpha_p)/gamma_m > N_m/2:
+    #    raise ValueError("Warning: The input field is too large for the given Hilbert space dimension.")
 
     # sytem of equations
+    # delta_s, kappa_ext1_s, kappa_s, alpha_in1_s, alpha_p, G_0, delta_m, gamma_m
     delta_p = 0
-    def model(vars : list[np.complex128], t):
-        b_m, a_s, a_as, a_p = vars
-        b_m_dt = 1j*delta_m*b_m - gamma_m/2*b_m + 1j*G_0*abs(alpha_p)*(a_p*a_s.conjugate() - a_p.conjugate()*a_as)
-        a_s_dt = 1j*(delta_s-delta_m-delta_p)*a_s - kappa_s/2*a_s + 1j*G_0*abs(alpha_p)*b_m.conjugate()*a_p + np.sqrt(kappa_ext1_s)*alpha_in1_s
-    a = tensor(destroy(N), qeye(N_m))
-    b = tensor(qeye(N), destroy(N_m))
-    num_a = a.dag()*a
-    num_b = b.dag()*b
+    kappa_p = kappa_s
+    kappa_ext1_p = kappa_ext1_s
+    alpha_in1_p = alpha_p * np.sqrt((kappa_p**2/4+delta_p**2)/kappa_ext1_p)
+    print(alpha_in1_p, alpha_in1_s)
 
-    # Rotating wave approximation with the input field that correspond to the frequency we are probing
-    # and for the mechanical mode, to the difference between sideband and mechanical frequency
-    # delta_s = omega-omega_in1
-    # delta_m = omega_m - (1 if is_sideband_stokes else -1)*(omega_p-omega_in1_s)
+    #alpha_in1_s = 1 * np.sqrt(kappa_ext1_s)
+    def model(vars: list[np.complex128], t, *args):
+        b_m, a_s, a_p = vars
+        delta_m, gamma_m, G_0, delta_p, kappa_p, kappa_ext1_p, alpha_in1_p, delta_s, kappa_s, kappa_ext1_s, alpha_in1_s = args
+        # mechanical mode
+        Gamma_m = -1j*delta_m + gamma_m/2
+        Force_m = 0
+        dbm_dt = -Gamma_m*b_m + Force_m - 1j*G_0*a_s.conjugate()*a_p
+        # pump field
+        Gamma_p = 1j*delta_p + kappa_p/2
+        Force_p = np.sqrt(kappa_ext1_p)*alpha_in1_p
+        dap_dt = -Gamma_p*a_p + Force_p - 1j*G_0*a_s*b_m
+        # Stokes field
+        Gamma_s = -1j*(delta_s) + kappa_s/2
+        Force_s = np.sqrt(kappa_ext1_s)*alpha_in1_s
+        das_dt = -Gamma_s*a_s + Force_s - 1j*G_0*a_p*b_m.conjugate()
+        #print(b_m, a_s, a_p, dbm_dt, das_dt, dap_dt)
+        return [dbm_dt, das_dt, dap_dt]
     print(delta_s, delta_m)
-    free_evolution = delta_s*num_a + delta_m*num_b
-    incoupling_fields = 1j*np.sqrt(kappa_ext1_s)*alpha_in1_s*(a.dag()-a)
-    #interaction = GO*abs(alpha_p)*(a.dag()+a)*(b.dag()+b)
-    interaction = -G_0*abs(alpha_p)*(a.dag()*b.dag() + a*b if is_sideband_stokes else a.dag()*b + a*b.dag())
-    decay_channel_a = np.sqrt(kappa_s)*a
-    decay_channel_b = np.sqrt(gamma_m)*b
 
-    Hamiltonian = free_evolution + incoupling_fields + interaction
-    collapse_operators = [decay_channel_a,decay_channel_b]
-
-    if calculate_time_evolution:
+    if True:# calculate_time_evolution:
         # time evolution, the time array length considers the decay rate of the cavity to know when we reach the staedy state
         t = np.linspace(0, max(15/kappa_s,15/gamma_m), 1200)
-        # init vacuum state
-        rho_0 = tensor(coherent(N,2e-4),coherent(N_m,5e-4))
-        # solve time evolution with master equation
-        result = mesolve(Hamiltonian, rho_0, t, collapse_operators, [a,num_a,b,num_b])
-        a_me, num_a_me, b_me, num_b_me = result.expect
-        if False:
-            result_mc = mcsolve(Hamiltonian, rho_0, t, collapse_operators, [a,num_a,b,num_b], ntraj=10)
-            a_mc, num_a_mc, b_mc, num_b_mc = result_mc.expect
-            #rho_ss = steadystate(Hamiltonian, collapse_operators)
-            #num_a_ss = expect(num_a, rho_ss)
-            #num_b_ss = expect(num_b, rho_ss)
+        # init fields
+        init_fields = np.complex128([0, 0, alpha_p])
+        args = (delta_m, gamma_m, G_0, delta_p, kappa_p, kappa_ext1_p, alpha_in1_p, delta_s, kappa_s, kappa_ext1_s, alpha_in1_s)
+        # solve time evolution with langevin equations
+        solution, infodict = odeintw(model, init_fields, t, args=args, full_output=True)
+        b_m_le, a_s_le, a_p_le = solution[:, 0], solution[:, 1], solution[:, 2]
+        num_b_m_le, num_a_s_le, num_a_p_le = np.float64(np.abs(b_m_le)**2), np.float64(np.abs(a_s_le)**2), np.float64(np.abs(a_p_le)**2)
+        if False:            
             # You have to check that the time evolution is converging to the steady state
             import matplotlib.pyplot as plt
-            plt.plot(t, num_a_me)
-            plt.plot(t, num_b_me)
-            plt.plot(t, num_a_mc)
-            plt.plot(t, num_b_mc)
+            fig,ax=plt.subplots(1,2,figsize=(10,5), constrained_layout=True)
+            ax[0].plot(t, num_b_m_le, label='num_b_m')
+            ax[0].plot(t, num_a_s_le, label='num_a_s')
+            ax[0].plot(0, 0, label='num_a_p')
+            ax[0].grid()
+            ax[0].set_xlabel('Time [s]')
+            ax[0].set_ylabel('b_m a_s Number')
+            #ax[0].legend()
+            ax0twin = ax[0].twinx()       
+            ax0twin.plot(0,0, label='num_b_m')
+            ax0twin.plot(0,0, label='num_a_s')
+            ax0twin.plot(t, num_a_p_le, label='num_a_p')
+            ax0twin.set_ylabel('a_p Number')
             #plt.plot(t, [num_a_ss]*len(t))
             #plt.plot(t, [num_b_ss]*len(t))
+            ax[1].plot(b_m_le.real, b_m_le.imag, label='b_m')
+            ax[1].plot(a_s_le.real, a_s_le.imag, label='a_s')
+            ax[1].plot(0,0, label='a_p')
+            # simmetric plot axis range with 0 0 in the center
+            max_x, max_y = 1.1*max(max(abs(b_m_le.real)),max(abs(a_s_le.real))), 1.1*max(max(abs(b_m_le.imag)),max(abs(a_s_le.imag)))
+            ax[1].set_xlim(-max_x, max_x)
+            ax[1].set_ylim(-max_y, max_y)
+            ax[1].set_xlabel('b_m a_s x')
+            ax[1].set_ylabel('b_m a_s p')
+            ax[1].grid()
+            #ax[1].legend()
+            #twin axis
+            ax2=fig.add_subplot(122, frameon=False)
+            ax2.plot(0,0, label="b_m")
+            ax2.plot(0,0, label="a_s")
+            ax2.plot(a_p_le.real, a_p_le.imag, label='a_p')
+            max_x, max_y = 1.1*max(abs(a_p_le.real)), 1.1*max(abs(a_p_le.imag))
+            ax2.set_xlim(-max_x, max_x)
+            ax2.set_ylim(-max_y, max_y)
+            ax2.xaxis.tick_top()
+            ax2.yaxis.tick_right()
+            ax2.set_xlabel('a_p x')
+            ax2.set_ylabel('a_p p')
+            ax2.xaxis.set_label_position('top')
+            ax2.yaxis.set_label_position('right')
             plt.show()
-        a_ss = np.mean(a_me[-10:])
-        num_a_ss = np.mean(num_a_me[-10:])
-        b_ss = np.mean(b_me[-10:])
-        num_b_ss = np.mean(num_b_me[-10:])
+            #camera.snap()
+        b_m_ss, a_s_ss, a_p_ss = np.mean(b_m_le[-10:]), np.mean(a_s_le[-10:]), np.mean(a_p_le[-10:])
+        print(a_p_ss)
+        num_b_m_ss, num_a_s_ss, num_a_p_ss = np.mean(num_b_m_le[-10:]), np.mean(num_a_s_le[-10:]), np.mean(num_a_p_le[-10:])
     else:
         # calculate the steady state solution of the Lindbladian problem and the expectations
         rho_ss = steadystate(Hamiltonian, collapse_operators)
@@ -224,8 +259,8 @@ def get_steady_state_field_optomechanical_cavity(delta_s, kappa_ext1_s, kappa_s,
         num_a_ss = expect(num_a, rho_ss)
         b_ss = expect(b, rho_ss)
         num_b_ss = expect(num_b, rho_ss)
-    print("Steady state cavity field: %.4e photons and %.4e phonons" % (num_a_ss, num_b_ss))
-    return a_ss #,num_a_ss, b_ss, num_b_ss
+    print("Steady state cavity field: %.4e pump photons, %.4e photons and %.4e phonons" % (num_a_p_ss, num_a_s_ss, num_b_m_ss))
+    return a_s_ss , a_p_ss
 
 
 if __name__=="__main__":
@@ -239,23 +274,35 @@ if __name__=="__main__":
     kappa_ext2_s = 1e6
     kappa_s = kappa_ext1_s + kappa_ext2_s + 1e6
     omega_p = lambda_to_omega(1550e-9)
-    omega_s = omega_p + (-1 if is_sideband_stokes else 1) * 12.0008e9 #+ np.linspace(-8e6, 8e6, 10).reshape(-1,1)
-    omega_in1_s = omega_s + np.linspace(-1e7, 1e7, 101)
+    omega_s = omega_p + (-1 if is_sideband_stokes else 1) * 12.0004e9 #+ np.linspace(-8e6, 8e6, 10).reshape(-1,1)
+    omega_in1_s = omega_s + np.linspace(-1e6, 1e6, 101)
     alpha_p = 7e3*(1 if is_sideband_stokes else 3) #* np.linspace(0,1.2,6).reshape(-1,1)
     G_0 = 100
     Omega_m = 12e9
     gamma_m = 1e6
-
+    #from celluloid import Camera
+    #fig,ax=plt.subplots(1,2,figsize=(10,5), constrained_layout=True)
+    #camera = Camera(fig)
     r=reflectivity_ss_sideband(omega_in1_s, kappa_ext1_s, omega_s, kappa_s, omega_p, alpha_p, G_0, Omega_m, gamma_m, 
                                is_sideband_stokes, N=5, N_m=5)
-    t=transmittivity_ss_sideband(omega_in1_s, kappa_ext1_s, kappa_ext2_s, omega_s, kappa_s, omega_p, alpha_p, G_0, Omega_m, gamma_m, 
+    t, a_p=transmittivity_ss_sideband(omega_in1_s, kappa_ext1_s, kappa_ext2_s, omega_s, kappa_s, omega_p, alpha_p, G_0, Omega_m, gamma_m, 
                                  is_sideband_stokes, N=5, N_m=5)
-
+    print((omega_in1_s.T-omega_p)[np.where(t==np.max(t))])
+    #anim = camera.animate(blit=True)
+    #anim.save('scatter.gif')
     plt.plot(omega_in1_s.T-omega_p, r.T, "--",label='Reflectivity')
     plt.plot(omega_in1_s.T-omega_p, t.T, label='Transmissivity')
-    plt.ylim(-0.1,2.1)
+    plt.ylim(-0.1,4.1)
     plt.xticks(*get_axis_values(omega_in1_s.T-omega_p))
     plt.xlabel("Sideband relative frequency [GHz]")
     plt.ylabel("Cavity response")
     plt.grid()
+    plt.show()
+    plt.plot(omega_in1_s.T-omega_p, np.abs(a_p.T)**2-alpha_p**2, label='Pump photons')
+    plt.ylabel("Pump photons difference")
+    plt.twinx()
+    plt.plot(omega_in1_s.T-omega_p, np.angle(a_p.T), "g",label='Pump photons')
+    plt.ylabel("Pump photons phase")
+    plt.xticks(*get_axis_values(omega_in1_s.T-omega_p))
+    plt.xlabel("Sideband relative frequency [GHz]")
     plt.show()
