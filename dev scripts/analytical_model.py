@@ -188,12 +188,12 @@ if __name__ == "__main__":
     kappa_ext2_s = 1e6
     kappa_s = kappa_ext1_s + kappa_ext2_s + 1e6
     omega_p = lambda_to_omega(1550e-9)
-    omega_s = omega_p + (-1 if is_sideband_stokes else 1) * 12.0004e9 #+ np.linspace(-8e6, 8e6, 10).reshape(-1,1)
-    omega_in1_s = omega_s + np.linspace(-1e6, 1e6, 501)
+    omega_s = omega_p + (-1 if is_sideband_stokes else 1) * 12.0002e9 #+ np.linspace(-8e6, 8e6, 10).reshape(-1,1)
+    omega_in1_s = omega_s + np.linspace(-1e6, 3e6, 41)
     alpha_p = 7e3*(1 if is_sideband_stokes else 3) #* np.linspace(0,1.2,6).reshape(-1,1)
-    G_0 = 100
+    G_0 = 20
     Omega_m = 12e9
-    gamma_m = 1e6
+    gamma_m = 1e5
 
     r=reflectivity_ss_sideband(omega_in1_s, kappa_ext1_s, omega_s, kappa_s, omega_p, alpha_p, G_0, Omega_m, gamma_m, is_sideband_stokes)
     t=transmissivity_ss_sideband(omega_in1_s, kappa_ext1_s, kappa_ext2_s, omega_s, kappa_s, omega_p, alpha_p, G_0, Omega_m, gamma_m, is_sideband_stokes)  
@@ -202,7 +202,7 @@ if __name__ == "__main__":
     plt.plot(omega_in1_s.T-omega_p, t.T, label='Transmissivity')
     plt.xlabel("Sideband relative frequency [GHz]")
     plt.ylabel("Cavity response")
-    plt.ylim(-0.1,4.1)
+    #plt.ylim(-0.1,4.1)
     plt.xticks(*get_axis_values(omega_in1_s.T-omega_p))
     plt.grid()
     plt.show()
