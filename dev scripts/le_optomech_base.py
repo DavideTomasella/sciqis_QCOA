@@ -319,7 +319,7 @@ def get_steady_state_field_optomechanical_cavity(delta_s, kappa_ext1_s, kappa_s,
         b_m_le, a_s_le, a_p_le = solution[:, 0], solution[:, 1], solution[:, 2]
         num_b_m_le, num_a_s_le, num_a_p_le = np.float64(np.abs(b_m_le)**2), np.float64(np.abs(a_s_le)**2), np.float64(np.abs(a_p_le)**2)
         #print(num_b_m_le[-1]+ num_a_s_le[-1]+ num_a_p_le[-1])
-        if False:
+        if True:
             # You have to check that the time evolution is converging to the steady state
             import matplotlib.pyplot as plt
             fig,ax=plt.subplots(1,2,figsize=(10,5), constrained_layout=True)
@@ -372,10 +372,6 @@ def get_steady_state_field_optomechanical_cavity(delta_s, kappa_ext1_s, kappa_s,
         b_m_ss, a_s_ss, a_p_ss = np.mean(b_m_le[-10:]), np.mean(a_s_le[-10:]), np.mean(a_p_le[-10:])
         num_b_m_ss, num_a_s_ss, num_a_p_ss = np.mean(num_b_m_le[-10:]), np.mean(num_a_s_le[-10:]), np.mean(num_a_p_le[-10:])
     else:
-        # calculate the steady state solution of the Lindbladian problem and the expectations
-        init_fields = np.float64([0,0, 0,0, alpha_p,0])
-        args = (delta_m, gamma_m, G_0, delta_p, kappa_p, kappa_ext1_p, alpha_in1_p, delta_s, kappa_s, kappa_ext1_s, alpha_in1_s)
-        # solve time evolution with langevin equations
         def model_n(vars, *args):
             #eps=1e-10
             b_m, a_s, a_p = vars[0]+1j*vars[1], vars[2]+1j*vars[3], vars[4]+1j*vars[5]
@@ -386,8 +382,13 @@ def get_steady_state_field_optomechanical_cavity(delta_s, kappa_ext1_s, kappa_s,
             return np.abs(dbm_dt)**2 + np.abs(das_dt)**2 + np.abs(dap_dt)**2
             return np.abs(bm_dot)**2 + np.abs(as_dot)**2 + np.abs(ap_dot)**2 +\
                 np.abs(dbm_dt)**2 + np.abs(das_dt)**2 + np.abs(dap_dt)**2
-        time0=time.time()
-        solution = minimize(model_n, init_fields, args=args, method="bfgs", options={'gtol':1e-10,'maxiter':1e4})        
+        
+        # calculate the steady state solution of the Lindbladian problem and the expectations
+        time0 = time.time()
+        init_fields = np.float64([0,0, 0,0, alpha_p,0])        
+        args = (delta_m, gamma_m, G_0, delta_p, kappa_p, kappa_ext1_p, alpha_in1_p, delta_s, kappa_s, kappa_ext1_s, alpha_in1_s)
+        solution = minimize(model_n, init_fields, args=args, method="bfgs", options={'gtol':1e-10,'maxiter':1e5})
+        # solve time evolution with langevin equations
         print("Elapsed time %.2f"%(time.time()-time0))
         print(solution.message)
         print(solution.x)
@@ -409,9 +410,9 @@ if __name__=="__main__":
     kappa_s = kappa_ext1_s + kappa_ext2_s + 1e6
     omega_p = lambda_to_omega(1550e-9)
     omega_s = omega_p + (-1 if is_sideband_stokes else 1) * 12.0004e9 #+ np.linspace(-8e6, 8e6, 10).reshape(-1,1)
-    omega_in1_s = omega_s + np.linspace(-1e6, 3e6, 21)
+    omega_in1_s = omega_s + np.linspace(-1e5, 6e5, 8)
     alpha_p = 7e3*(1 if is_sideband_stokes else 3) #* np.linspace(0,1.2,6).reshape(-1,1)
-    G_0 = 60
+    G_0 = 40
     Omega_m = 12e9
     gamma_m = 1e5
     #from celluloid import Camera
