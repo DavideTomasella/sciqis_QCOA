@@ -10,6 +10,7 @@ import sympy as sp
 from odeintw import odeintw
 from scipy.optimize import fsolve
 from scipy.integrate import solve_ivp
+from scipy.optimize import minimize
 import time
 
 counter=0
@@ -77,7 +78,7 @@ def reflectivity_ss_sideband(omega_in1_s, kappa_ext1_s, omega_s, kappa_s, omega_
     for i,o_in in enumerate(omega_in1_s):
         a_s, _ = get_steady_state_field_optomechanical_cavity(omega_s-o_in, kappa_ext1_s, kappa_s, alpha_in1_s, alpha_p, G_0, 
                                                               (omega_p-o_in)+(-1 if is_sideband_stokes else 1)*Omega_m, gamma_m,
-                                                              is_sideband_stokes=is_sideband_stokes, calculate_time_evolution=False)
+                                                              is_sideband_stokes=is_sideband_stokes, calculate_time_evolution=True)
         alpha_out1_s[i] = alpha_in1_s - np.sqrt(kappa_ext1_s) * a_s
     return np.abs(alpha_out1_s/alpha_in1_s) ** 2
 
@@ -131,7 +132,7 @@ def transmittivity_ss_sideband(omega_in1_s, kappa_ext1_s, kappa_ext2_s, omega_s,
     for i,o_in in enumerate(omega_in1_s):
         a_s, a_p[i] = get_steady_state_field_optomechanical_cavity(omega_s-o_in, kappa_ext1_s, kappa_s, alpha_in1_s, alpha_p, G_0, 
                                                                    (omega_p-o_in)+(-1 if is_sideband_stokes else 1)*Omega_m, gamma_m, 
-                                                                   is_sideband_stokes=is_sideband_stokes, calculate_time_evolution=True)
+                                                                   is_sideband_stokes=is_sideband_stokes, calculate_time_evolution=False)
         alpha_out1_s[i] = np.sqrt(kappa_ext2_s) * a_s
     return np.abs(alpha_out1_s/alpha_in1_s) ** 2, a_p
 
@@ -204,41 +205,95 @@ def get_steady_state_field_optomechanical_cavity(delta_s, kappa_ext1_s, kappa_s,
         Gamma_m = -1j*delta_m + gamma_m/2
         Force_m = 0
         dbm_dt = -Gamma_m*b_m + Force_m - 1j*G_0*a_s.conjugate()*a_p
-        # pump field
-        Gamma_p = 1j*delta_p + kappa_p/2
-        Force_p = np.sqrt(kappa_ext1_p)*alpha_in1_p
-        dap_dt = -Gamma_p*a_p + Force_p - 1j*G_0*a_s*b_m
         # Stokes field
         Gamma_s = -1j*(delta_s) + kappa_s/2
         Force_s = np.sqrt(kappa_ext1_s)*alpha_in1_s
         das_dt = -Gamma_s*a_s + Force_s - 1j*G_0*a_p*b_m.conjugate()
+        # pump field
+        Gamma_p = 1j*delta_p + kappa_p/2
+        Force_p = np.sqrt(kappa_ext1_p)*alpha_in1_p
+        dap_dt = -Gamma_p*a_p + Force_p - 1j*G_0*a_s*b_m
         #print(b_m, a_s, a_p, dbm_dt, das_dt, dap_dt)
         #print("%.2e %.2e %.2e %.2e %.2e %.2e"%(dbm_dt.real, dbm_dt.imag, das_dt.real, das_dt.imag, dap_dt.real, dap_dt.imag))
         return [dbm_dt, das_dt, dap_dt]
     
+    def jacobian_n_constant(vars: list[np.complex128], t, *args):
+        b_m, a_s, a_p = vars
+        delta_m, gamma_m, G_0, delta_p, kappa_p, kappa_ext1_p, alpha_in1_p, delta_s, kappa_s, kappa_ext1_s, alpha_in1_s = args
+        # mechanical mode
+        Gamma_m = -1j*delta_m + gamma_m/2
+        Force_m = 0
+        dbm = [-Gamma_m,
+               0,
+               -0.5*1j*G_0*a_s.conjugate(),
+               0,
+               -0.5*1j*G_0*a_p,
+               0]
+        dbm_c = [0,
+                 0.5*1j*G_0*a_p.conjugate(),
+                 0,
+                 -Gamma_m.conjugate(),
+                 0,
+                 0.5*1j*G_0*a_s]
+        # Stokes field
+        Gamma_s = -1j*(delta_s) + kappa_s/2
+        Force_s = np.sqrt(kappa_ext1_s)*alpha_in1_s
+        das = [0,
+                -Gamma_s,
+                -0.5*1j*G_0*b_m.conjugate(),
+                -0.5*1j*G_0*a_p,
+                0,
+                0]
+        das_c = [0.5*1j*G_0*a_p.conjugate(),
+                 0,
+                 0,
+                 0,
+                 -Gamma_s.conjugate(),
+                 0.5*1j*G_0*b_m]
+        # pump field
+        Gamma_p = 1j*delta_p + kappa_p/2
+        Force_p = np.sqrt(kappa_ext1_p)*alpha_in1_p
+        dap = [-0.5*1j*G_0*a_s,
+               -0.5*1j*G_0*b_m,
+                -Gamma_p,
+                0,
+                0,
+                0]
+        dap_c = [0,
+                 0,
+                 0,
+                 0.5*1j*G_0*a_s.conjugate(),
+                 0.5*1j*G_0*b_m.conjugate(),
+                -Gamma_p.conjugate()]
+        jacobian = np.array([dbm, das, dap, dbm_c, das_c, dap_c])
+        constant = np.array([Force_m, Force_s, Force_p, Force_m.conjugate(), Force_s.conjugate(), Force_p.conjugate()])
+        return jacobian, constant
+    
     def model_ivp(t, vars, *args):
-        return model(vars, t, *args)
+        if False:
+            jacobian, constant = jacobian_n_constant(vars, t, *args)
+            dvars_dt_c = np.dot(jacobian, np.append(vars, np.conj(vars))) + constant
+            dvars_dt = dvars_dt_c[:3]
+            #print(dvars_dt-dvars_dt_c[3:].conjugate())
+        else:
+            dvars_dt = model(vars, t, *args)
+        return dvars_dt
     
     def detect_steady_state(t, vars, *args):
-        b_m, a_s, a_p = np.array([vars[0].real, vars[0].imag]), np.array([vars[1].real, vars[1].imag]), np.array([vars[2].real, vars[2].imag])
-        b_m, a_s, a_p = b_m/np.linalg.norm(b_m), a_s/np.linalg.norm(a_s), a_p/np.linalg.norm(a_p)
+        threshold = 11
+        #b_m, a_s, a_p = np.array([vars[0].real, vars[0].imag]), np.array([vars[1].real, vars[1].imag]), np.array([vars[2].real, vars[2].imag])
+        #b_m, a_s, a_p = b_m/np.linalg.norm(b_m), a_s/np.linalg.norm(a_s), a_p/np.linalg.norm(a_p)
         deriv = model_ivp(t, vars, *args)
-        d_bm, d_as, d_ap = np.array([deriv[0].real, deriv[0].imag]), np.array([deriv[1].real, deriv[1].imag]), np.array([deriv[2].real, deriv[2].imag])
-        d_bm, d_as, d_ap = d_bm/np.linalg.norm(d_bm), d_as/np.linalg.norm(d_as), d_ap/np.linalg.norm(d_ap)
-        dot_bm, dot_as, dot_ap = b_m.dot(d_bm), a_s.dot(d_as), a_p.dot(d_ap)
-        condition_bm = np.abs(deriv[0]*np.sqrt(vars[0])).real
-        condition_as = np.abs(deriv[1]*np.sqrt(vars[1])).real
-        condition1 = max(np.abs(deriv[0]).real*100, condition_bm)
-        condition2 = max(condition_bm, condition_as*10)
-        condition3= np.abs(dot_bm/vars[0]).real
-        #print(dot_bm, dot_as, dot_ap, condition, condition2)
-        return min(min(condition1 - 3e2, condition2 - 3e2), condition3 - 1e-10)
+        #curl_bm,curl_as,curl_ap=np.array([deriv[0].real, deriv[0].imag])@b_m, np.array([deriv[1].real, deriv[1].imag])@a_s, np.array([deriv[2].real, deriv[2].imag])@a_p
+        curl_bm,curl_as,curl_ap = (vars[0].real*deriv[0].real+vars[0].imag*deriv[0].imag)/np.abs(vars[0])**2, (vars[1].real*deriv[1].real+vars[1].imag*deriv[1].imag)/np.abs(vars[1])**2, (vars[2].real*deriv[2].real+vars[2].imag*deriv[2].imag)/np.abs(vars[2])**2
+        #print("%.2e %.2e %.2e"%(curl_bm, curl_as, curl_ap))
+        return np.abs(curl_bm) + np.abs(curl_as) + np.abs(curl_ap) - threshold
 
     print(delta_s, delta_m)
 
-    if calculate_time_evolution:
+    if False:
         # time evolution, the time array length considers the decay rate of the cavity to know when we reach the staedy state
-        t = np.linspace(0, 1000*max(1/kappa_s,1/gamma_m), 3000)
+        t = np.linspace(0, 1000*max(1/kappa_s,1/gamma_m), 5000)
         # init fields
         init_fields = np.complex128([0, 0, alpha_p])
         step=min(1/kappa_s,1/gamma_m)/3
@@ -250,21 +305,21 @@ def get_steady_state_field_optomechanical_cavity(delta_s, kappa_ext1_s, kappa_s,
         detect_ss.direction = -1
         sol = solve_ivp(model_ivp, [t[0], t[-1]], init_fields, args=args, events=detect_ss,
                         method='RK45', first_step=step*0.1, rtol=1e-6, atol=1e-6, dense_output=True)
-        t1=time.time()
+        print("Elapsed time %.2f"%(time.time()-t0))
         #print(sol)
         if len(sol.t_events[0])>0:
             print("End time/max time: %.2e/%.2e"%(sol.t_events[0], t[-1]))
-            print(model_ivp(sol.t_events[0][0], sol.y_events[0][0], *args))
+            #print(model_ivp(sol.t_events[0][0], sol.y_events[0][0], *args))
             t = np.arange(0, sol.t_events[0][0], step)
             #print(len(t))
         else:
             print("No steady state found after max time %.2e"%(t[-1]))
         solution = sol.sol(t).T
         #solution, infodict = odeintw(model, init_fields, t, args=args, full_output=True)
-        print("Elapsed time t1 %.2f, t2 %.2f"%(t1-t0, time.time()-t1))
         b_m_le, a_s_le, a_p_le = solution[:, 0], solution[:, 1], solution[:, 2]
         num_b_m_le, num_a_s_le, num_a_p_le = np.float64(np.abs(b_m_le)**2), np.float64(np.abs(a_s_le)**2), np.float64(np.abs(a_p_le)**2)
-        if True:
+        #print(num_b_m_le[-1]+ num_a_s_le[-1]+ num_a_p_le[-1])
+        if False:
             # You have to check that the time evolution is converging to the steady state
             import matplotlib.pyplot as plt
             fig,ax=plt.subplots(1,2,figsize=(10,5), constrained_layout=True)
@@ -315,26 +370,29 @@ def get_steady_state_field_optomechanical_cavity(delta_s, kappa_ext1_s, kappa_s,
             time.sleep(0.1)
             #camera.snap()
         b_m_ss, a_s_ss, a_p_ss = np.mean(b_m_le[-10:]), np.mean(a_s_le[-10:]), np.mean(a_p_le[-10:])
-        print(a_p_ss)
         num_b_m_ss, num_a_s_ss, num_a_p_ss = np.mean(num_b_m_le[-10:]), np.mean(num_a_s_le[-10:]), np.mean(num_a_p_le[-10:])
     else:
         # calculate the steady state solution of the Lindbladian problem and the expectations
-        init_fields = np.complex128([0, 0, np.abs(alpha_p)**2, 0, 0, alpha_p])
+        init_fields = np.float64([0,0, 0,0, alpha_p,0])
         args = (delta_m, gamma_m, G_0, delta_p, kappa_p, kappa_ext1_p, alpha_in1_p, delta_s, kappa_s, kappa_ext1_s, alpha_in1_s)
         # solve time evolution with langevin equations
-        def model_n(vars, t, *args):
-            num_b_m, num_a_s, num_a_p, b_m, a_s, a_p = vars
-            dbm_dt, das_dt, dap_dt = model([b_m, a_s, a_p], t, *args)
-            b_m_1 = b_m + dbm_dt
-            a_s_1 = a_s + das_dt
-            a_p_1 = a_p + dap_dt
-            dnum_bm_dt= np.abs(b_m_1)**2 - num_b_m
-            dnum_as_dt= np.abs(a_s_1)**2 - num_a_s
-            dnum_ap_dt= np.abs(a_p_1)**2 - num_a_p
-            print("%.2e %.2e %.2e %.2e %.2e %.2e" % (dnum_bm_dt, dnum_as_dt, dnum_ap_dt, dbm_dt, das_dt, dap_dt))
-            return [dnum_bm_dt, dnum_as_dt, dnum_ap_dt, 0, 0, 0]
-        solution = fsolvew(model_n, init_fields, t=0, args=args)        
-        num_b_m_ss, num_a_s_ss, num_a_p_ss, b_m_ss, a_s_ss, a_p_ss = solution[0], solution[1], solution[2], solution[3], solution[4], solution[5]
+        def model_n(vars, *args):
+            #eps=1e-10
+            b_m, a_s, a_p = vars[0]+1j*vars[1], vars[2]+1j*vars[3], vars[4]+1j*vars[5]
+            dbm_dt, das_dt, dap_dt = model_ivp(0, [b_m, a_s, a_p], *args)
+            #bm_dot,as_dot,ap_dot = (b_m.real*dbm_dt.real+b_m.imag*dbm_dt.imag)/(eps+np.abs(b_m)**2), (a_s.real*das_dt.real+a_s.imag*das_dt.imag)/(eps+np.abs(a_s)**2), (a_p.real*dap_dt.real+a_p.imag*dap_dt.imag)/(eps+np.abs(a_p)**2)
+            #print("%.2e %.2e %.2e" % (bm_dot, as_dot, ap_dot))
+            #print("%.2e %.2e %.2e %.2e %.2e %.2e"%(b_m.real, b_m.imag, a_s.real, a_s.imag, a_p.real, a_p.imag))
+            return np.abs(dbm_dt)**2 + np.abs(das_dt)**2 + np.abs(dap_dt)**2
+            return np.abs(bm_dot)**2 + np.abs(as_dot)**2 + np.abs(ap_dot)**2 +\
+                np.abs(dbm_dt)**2 + np.abs(das_dt)**2 + np.abs(dap_dt)**2
+        time0=time.time()
+        solution = minimize(model_n, init_fields, args=args, method="bfgs", options={'gtol':1e-10,'maxiter':1e4})        
+        print("Elapsed time %.2f"%(time.time()-time0))
+        print(solution.message)
+        print(solution.x)
+        b_m_ss, a_s_ss, a_p_ss = solution.x[0]+1j*solution.x[1], solution.x[2]+1j*solution.x[3], solution.x[4]+1j*solution.x[5]
+        num_b_m_ss, num_a_s_ss, num_a_p_ss = np.abs(b_m_ss)**2, np.abs(a_s_ss)**2, np.abs(a_p_ss)**2
     print("Steady state cavity field: %.4e pump photons, %.4e photons and %.4e phonons" % (num_a_p_ss, num_a_s_ss, num_b_m_ss))
     return a_s_ss , a_p_ss
 
@@ -351,15 +409,15 @@ if __name__=="__main__":
     kappa_s = kappa_ext1_s + kappa_ext2_s + 1e6
     omega_p = lambda_to_omega(1550e-9)
     omega_s = omega_p + (-1 if is_sideband_stokes else 1) * 12.0004e9 #+ np.linspace(-8e6, 8e6, 10).reshape(-1,1)
-    omega_in1_s = omega_s + np.linspace(-1e5, 3e5, 11)
+    omega_in1_s = omega_s + np.linspace(-1e6, 3e6, 21)
     alpha_p = 7e3*(1 if is_sideband_stokes else 3) #* np.linspace(0,1.2,6).reshape(-1,1)
-    G_0 = 40
+    G_0 = 60
     Omega_m = 12e9
     gamma_m = 1e5
     #from celluloid import Camera
     #fig,ax=plt.subplots(1,2,figsize=(10,5), constrained_layout=True)
     #camera = Camera(fig)
-    r=0.5+0*reflectivity_ss_sideband(omega_in1_s, kappa_ext1_s, omega_s, kappa_s, omega_p, alpha_p, G_0, Omega_m, gamma_m, 
+    r=reflectivity_ss_sideband(omega_in1_s, kappa_ext1_s, omega_s, kappa_s, omega_p, alpha_p, G_0, Omega_m, gamma_m, 
                                is_sideband_stokes)
     t, a_p=transmittivity_ss_sideband(omega_in1_s, kappa_ext1_s, kappa_ext2_s, omega_s, kappa_s, omega_p, alpha_p, G_0, Omega_m, gamma_m, 
                                  is_sideband_stokes)
