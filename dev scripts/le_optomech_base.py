@@ -304,17 +304,18 @@ def get_steady_state_field_optomechanical_cavity(delta_s, kappa_ext1_s, kappa_s,
         return dvars_dt
     
     def detect_steady_state(t, vars, *args):
-        threshold = 1e-1
-        eps = 1e-1
+        delta_m, gamma_m, G_0, delta_p, kappa_p, kappa_ext1_p, alpha_in1_p, delta_s, kappa_s, kappa_ext1_s, alpha_in1_s, is_sideband_stokes = args
+        threshold = 0.3*G_0
+        eps = 3e-2
         #b_m, a_s, a_p = np.array([vars[0].real, vars[0].imag]), np.array([vars[1].real, vars[1].imag]), np.array([vars[2].real, vars[2].imag])
         #b_m, a_s, a_p = b_m/np.linalg.norm(b_m), a_s/np.linalg.norm(a_s), a_p/np.linalg.norm(a_p)
         deriv = model_ivp(t, vars, *args)
         #curl_bm,curl_as,curl_ap=np.array([deriv[0].real, deriv[0].imag])@b_m, np.array([deriv[1].real, deriv[1].imag])@a_s, np.array([deriv[2].real, deriv[2].imag])@a_p
-        curl_bm = (vars[0].real*deriv[0].real+vars[0].imag*deriv[0].imag)/max(eps,np.abs(vars[0]))
-        curl_as = (vars[1].real*deriv[1].real+vars[1].imag*deriv[1].imag)/max(eps,np.abs(vars[1]))
-        curl_ap = (vars[2].real*deriv[2].real+vars[2].imag*deriv[2].imag)/max(eps,np.abs(vars[2]))
+        curl_bm = (vars[0].real*deriv[0].real+vars[0].imag*deriv[0].imag)/max(eps,np.abs(vars[0])**2)
+        curl_as = (vars[1].real*deriv[1].real+vars[1].imag*deriv[1].imag)/max(eps,np.abs(vars[1])**2)
+        curl_ap = (vars[2].real*deriv[2].real+vars[2].imag*deriv[2].imag)/max(eps,np.abs(vars[2])**2)#pump
         #print("%.2e %.2e %.2e"%(curl_bm, curl_as, curl_ap))
-        return (np.abs(curl_bm) * np.abs(curl_as) * np.abs(curl_ap)) - threshold
+        return (np.abs(curl_bm) + np.abs(curl_as) + np.abs(curl_ap)) - threshold
 
     print(delta_p, delta_s, delta_m)
     # approximate value for the pump field, we use it for initialization of the solver
@@ -322,10 +323,10 @@ def get_steady_state_field_optomechanical_cavity(delta_s, kappa_ext1_s, kappa_s,
 
     if calculate_time_evolution:
         # time evolution, the time array length considers the decay rate of the cavity to know when we reach the staedy state
-        t = np.linspace(0, G_0**2*max(1/kappa_s,1/gamma_m), 5000)
+        t = np.linspace(0, 20*G_0*max(1/kappa_s,1/gamma_m), 20*G_0*10)
         # init fields
         init_fields = np.complex128([0, 0, alpha_p])
-        step=min(1/kappa_s,1/gamma_m)/3
+        step=0.2*min(1/kappa_s,1/gamma_m)
         args = (delta_m, gamma_m, G_0, delta_p, kappa_p, kappa_ext1_p, alpha_in1_p, delta_s, kappa_s, kappa_ext1_s, alpha_in1_s, is_sideband_stokes)
         # solve time evolution with langevin equations
         t0=time.time()
@@ -348,7 +349,7 @@ def get_steady_state_field_optomechanical_cavity(delta_s, kappa_ext1_s, kappa_s,
         b_m_le, a_s_le, a_p_le = solution[:, 0], solution[:, 1], solution[:, 2]
         num_b_m_le, num_a_s_le, num_a_p_le = np.float64(np.abs(b_m_le)**2), np.float64(np.abs(a_s_le)**2), np.float64(np.abs(a_p_le)**2)
         #print(num_b_m_le[-1]+ num_a_s_le[-1]+ num_a_p_le[-1])
-        if False:
+        if True:
             # You have to check that the time evolution is converging to the steady state
             import matplotlib.pyplot as plt
             fig,ax=plt.subplots(1,2,figsize=(10,5), constrained_layout=True)
@@ -432,7 +433,7 @@ if __name__=="__main__":
     def get_axis_values(values, n=5):
         return np.linspace(min(values), max(values), n), ["%.4f"%(i/1e9) for i in np.linspace(min(values), max(values), n)]
     # Test the analytical model
-    is_sideband_stokes = True
+    is_sideband_stokes = False
     lambda_to_omega = lambda l: 2 * np.pi * 3e8 / l
     kappa_ext1_s = 1e6
     kappa_ext1_p = 2e6
@@ -443,11 +444,11 @@ if __name__=="__main__":
     omega_p = lambda_to_omega(1550e-9)
     omega_in1_p = omega_p + (-1 if is_sideband_stokes else 1) * 3e5
     omega_s = omega_p + (-1 if is_sideband_stokes else 1) * 12.0012e9 #+ np.linspace(-8e6, 8e6, 10).reshape(-1,1)
-    omega_in1_s = omega_s + (-1 if is_sideband_stokes else 1) * np.linspace(-3e6, 1e6, 401)
+    omega_in1_s = omega_s + (-1 if is_sideband_stokes else 3) * np.linspace(-3e6, 1e6, 401)
     alpha_p = 7e3*(1 if is_sideband_stokes else 3) #* np.linspace(0,1.2,6).reshape(-1,1)
     alpha_in1_p = alpha_p * (kappa_p/2+1j*(omega_p-omega_in1_p))/np.sqrt(kappa_ext1_p)
     alpha_in1_s = np.sqrt(kappa_ext1_s)
-    G_0 = 20
+    G_0 = 100
     Omega_m = 12e9
     gamma_m = 1e5
     #from celluloid import Camera
