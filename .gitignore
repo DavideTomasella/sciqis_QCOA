@@ -162,3 +162,4 @@ cython_debug/
 # output data from the simulation
 data/
 [0-9]*.png
+dev scripts/results/le/lasing derivative of the number of photons.xlsx
