@@ -7,7 +7,10 @@ Author: D. Tomasella
 import numpy as np
 
 
-def reflectivity_ss_sideband(omega_in1_s, kappa_ext1_s, omega_s, kappa_s, omega_p, alpha_p, G_0, Omega_m, gamma_m, is_sideband_stokes=True):
+def reflectivity_ss_sideband(omega_in1_s, kappa_ext1_s, omega_s, kappa_s,
+                             omega_p, alpha_p, 
+                             G_0_mm, Omega_m_mm, gamma_m_mm, 
+                             is_sideband_stokes=True):
     """
         Calculate the reflectivity of the stokes field of the cavity in the rotating wave approximation for the input field alpha_in1_s (omega_in1_s) 
         and for the mechanical field Omega_m (omega_in1_p-omega_in1_s=omega_p-omega_in1_s because we are resonantly pumping omega_p)
@@ -57,14 +60,17 @@ def reflectivity_ss_sideband(omega_in1_s, kappa_ext1_s, omega_s, kappa_s, omega_
             reflectivity of the stokes field of the cavity
     """    
     alpha_in1_s = 1
-    alpha_out1_s = alpha_in1_s - np.sqrt(kappa_ext1_s)  * cavity_ss_sideband(omega_s-omega_in1_s, kappa_ext1_s, kappa_s, alpha_in1_s, alpha_p, G_0, 
-                                                                             (omega_p-omega_in1_s)+(-1 if is_sideband_stokes else 1)*Omega_m, gamma_m,
-                                                                             is_sideband_stokes)
+    alpha_out1_s = alpha_in1_s - np.sqrt(kappa_ext1_s)  * cavity_ss_sideband((omega_s-omega_in1_s).reshape(np.size(omega_s),-1,1), kappa_ext1_s, kappa_s, alpha_in1_s, alpha_p, G_0_mm.reshape(1,1,-1), 
+                                                                             (omega_p-omega_in1_s).reshape(1,-1,1)+(-1 if is_sideband_stokes else 1)*Omega_m_mm.reshape(1,1,-1),
+                                                                              gamma_m_mm.reshape(1,1,-1), is_sideband_stokes).reshape(np.size(omega_s)*np.size(alpha_p),-1)
     
     return np.abs(alpha_out1_s/alpha_in1_s) ** 2
 
 
-def transmissivity_ss_sideband(omega_in1_s, kappa_ext1_s, kappa_ext2_s, omega_s, kappa_s, omega_p, alpha_p, G_0, Omega_m, gamma_m, is_sideband_stokes=True):
+def transmissivity_ss_sideband(omega_in1_s, kappa_ext1_s, kappa_ext2_s, omega_s, kappa_s,
+                                omega_p, alpha_p,
+                                  G_0_mm, Omega_m_mm, gamma_m_mm,
+                                    is_sideband_stokes=True):
     """
         Calculate the transmissivity of the stokes field of the cavity in the rotating wave approximation for the input field alpha_in1_s (omega_in1_s)
         and for the mechanical field Omega_m (omega_in1_p-omega_in1_s=omega_p-omega_in1_s because we are resonantly pumping omega_p)
@@ -117,14 +123,16 @@ def transmissivity_ss_sideband(omega_in1_s, kappa_ext1_s, kappa_ext2_s, omega_s,
     """
 
     alpha_in1_s = 1
-    alpha_out2_s = np.sqrt(kappa_ext2_s) * cavity_ss_sideband(omega_s-omega_in1_s, kappa_ext1_s, kappa_s, alpha_in1_s, alpha_p, G_0, 
-                                                              (omega_p-omega_in1_s)+(-1 if is_sideband_stokes else 1)*Omega_m, gamma_m,
-                                                              is_sideband_stokes)
+    alpha_out2_s = np.sqrt(kappa_ext2_s) * cavity_ss_sideband((omega_s-omega_in1_s).reshape(np.size(omega_s),-1,1), kappa_ext1_s, kappa_s, alpha_in1_s, alpha_p, G_0_mm.reshape(1,1,-1), 
+                                                              (omega_p-omega_in1_s).reshape(1,-1,1)+(-1 if is_sideband_stokes else 1)*Omega_m_mm.reshape(1,1,-1),
+                                                               gamma_m_mm.reshape(1,1,-1), is_sideband_stokes).reshape(np.size(omega_s)*np.size(alpha_p),-1)
     
     return np.abs(alpha_out2_s/alpha_in1_s) ** 2
 
 
-def cavity_ss_sideband(delta_s, kappa_ext1_s, kappa_s, alpha_in1_s, alpha_p, G_0, delta_m, gamma_m, is_sideband_stokes=True):
+def cavity_ss_sideband(delta_s, kappa_ext1_s, kappa_s, alpha_in1_s,
+                        alpha_p, G_0_mm, delta_m_mm, gamma_m_mm,
+                          is_sideband_stokes=True):
     """
         Calculate the steady state solution for the stokes field of the cavity. 
         I don't care about the rotating wave approximation used because I have delta_s and delta_m that represent the difference compare to the cavity modes, 
@@ -171,7 +179,7 @@ def cavity_ss_sideband(delta_s, kappa_ext1_s, kappa_s, alpha_in1_s, alpha_p, G_0
 
     P = np.sqrt(kappa_ext1_s) / (\
             1j * delta_s + kappa_s / 2 +\
-            G_0 ** 2 * np.abs(alpha_p) ** 2 / (1j * delta_m + (-1 if is_sideband_stokes else 1) *gamma_m / 2)\
+            np.sum(G_0_mm ** 2 * np.abs(alpha_p) ** 2 / (1j * delta_m_mm + (-1 if is_sideband_stokes else 1) *gamma_m_mm / 2), axis=2).reshape(np.size(alpha_p),-1,1)\
         ) * alpha_in1_s
     
     return P
@@ -182,21 +190,41 @@ if __name__ == "__main__":
     def get_axis_values(values, n=5):
         return np.linspace(min(values), max(values), n), ["%.4f"%(i/1e9) for i in np.linspace(min(values), max(values), n)]
     # Test the analytical model
-    is_sideband_stokes = True
+    is_sideband_stokes = False
     lambda_to_omega = lambda l: 2 * np.pi * 3e8 / l
     kappa_ext1_s = 1e6
+    kappa_ext1_p = 2e6
     kappa_ext2_s = 1e6
+    kappa_ext2_p = 1e6
     kappa_s = kappa_ext1_s + kappa_ext2_s + 1e6
+    kappa_p = kappa_ext1_p + kappa_ext2_p + 1e6
     omega_p = lambda_to_omega(1550e-9)
+    omega_in1_p = omega_p + (-1 if is_sideband_stokes else 1) * 1e5
     omega_s = omega_p + (-1 if is_sideband_stokes else 1) * 12.0002e9 #+ np.linspace(-8e6, 8e6, 10).reshape(-1,1)
-    omega_in1_s = omega_s + np.linspace(-1e6, 3e6, 401)
-    alpha_p = 7e3*(1 if is_sideband_stokes else 3) #* np.linspace(0,1.2,6).reshape(-1,1)
+    omega_in1_s = omega_s + np.linspace(-6e6, 6e6, 401)
+    power_in1_p = 2.7e-5*(1 if is_sideband_stokes else 3)
+    alpha_in1_p = np.sqrt(power_in1_p / (6.626e-34 *omega_p))        
+    alpha_p = alpha_in1_p * np.sqrt(kappa_ext1_p)/(kappa_p/2+1j*(omega_p-omega_in1_p))
+    #alpha_p = 7e3*(1 if is_sideband_stokes else 3) #* np.linspace(0,1.2,6).reshape(-1,1)
     G_0 = 100
     Omega_m = 12e9
-    gamma_m = 1e5
+    gamma_m = 1e3
+    zero_order_fsr = 750e3
+    N=7
+    high_order_fsr = 45e3
+    Omega_m_zeros = Omega_m + zero_order_fsr * np.arange(-N,N+1)
+    norm_detuning_2000mode_vs_Omega_m = 1e3 / zero_order_fsr
+    G_0_zeros = G_0*np.sinc(np.arange(-N,N+1)/2+norm_detuning_2000mode_vs_Omega_m)**2
+    gamma_m_zeros = gamma_m*np.ones_like(Omega_m_zeros)
+    print(Omega_m_zeros, G_0_zeros)
+    
 
-    r=reflectivity_ss_sideband(omega_in1_s, kappa_ext1_s, omega_s, kappa_s, omega_p, alpha_p, G_0, Omega_m, gamma_m, is_sideband_stokes)
-    t=transmissivity_ss_sideband(omega_in1_s, kappa_ext1_s, kappa_ext2_s, omega_s, kappa_s, omega_p, alpha_p, G_0, Omega_m, gamma_m, is_sideband_stokes)  
+    r=reflectivity_ss_sideband(omega_in1_s, kappa_ext1_s, omega_s, kappa_s,
+                                omega_p, alpha_p, G_0_zeros, Omega_m_zeros, gamma_m_zeros,
+                                  is_sideband_stokes)
+    t=transmissivity_ss_sideband(omega_in1_s, kappa_ext1_s, kappa_ext2_s, omega_s, kappa_s,
+                                  omega_p, alpha_p, G_0_zeros, Omega_m_zeros, gamma_m_zeros,
+                                    is_sideband_stokes)  
 
     plt.plot(omega_in1_s.T-omega_p, r.T, "--",label='Reflectivity')
     plt.plot(omega_in1_s.T-omega_p, t.T, label='Transmissivity')
@@ -206,17 +234,29 @@ if __name__ == "__main__":
     plt.xticks(*get_axis_values(omega_in1_s.T-omega_p))
     plt.grid()
     plt.show()
-    
-    omega_s = omega_p + (-1 if is_sideband_stokes else 1) * 12.0002e9 #+ np.linspace(-3e6, 3e6, 10).reshape(-1,1)
-    alpha_p = 7e3*(1 if is_sideband_stokes else 3) * np.linspace(0,1.2,6).reshape(-1,1)
+    omega_s = omega_p + (-1 if is_sideband_stokes else 1) * 12.0002e9 #+ np.linspace(-1e6, 1e6, 3).reshape(-1,1)
+    alpha_p = alpha_p * np.linspace(0,1.2,6).reshape(-1,1,1)
 
-    r=reflectivity_ss_sideband(omega_in1_s, kappa_ext1_s, omega_s, kappa_s, omega_p, alpha_p, G_0, Omega_m, gamma_m, is_sideband_stokes)
-    t=transmissivity_ss_sideband(omega_in1_s, kappa_ext1_s, kappa_ext2_s, omega_s, kappa_s, omega_p, alpha_p, G_0, Omega_m, gamma_m, is_sideband_stokes)  
+    r=reflectivity_ss_sideband(omega_in1_s, kappa_ext1_s, omega_s, kappa_s, 
+                               omega_p, alpha_p, G_0_zeros, Omega_m_zeros, gamma_m_zeros, is_sideband_stokes)
+    t=transmissivity_ss_sideband(omega_in1_s, kappa_ext1_s, kappa_ext2_s, omega_s, kappa_s, 
+                                 omega_p, alpha_p, G_0_zeros, Omega_m_zeros, gamma_m_zeros, is_sideband_stokes)  
 
-    plt.plot(omega_in1_s.T-omega_p, r.T, "--",label='Reflectivity')
-    plt.plot(omega_in1_s.T-omega_p, t.T, label='Transmissivity')
+    plt.plot((omega_in1_s.T-omega_p).T, r.T, "--",label='Reflectivity')
+    plt.plot((omega_in1_s.T-omega_p).T, t.T, label='Transmissivity')
     #plt.ylim(-0.1,4.1)
-    plt.xticks(*get_axis_values(omega_in1_s.T-omega_p))
+    #plt.xlim([-5e6,+5e6])
+    #plt.xticks(*get_axis_values(omega_in1_s.T-omega_p))
+    plt.xlabel("Sideband relative frequency [GHz]")
+    plt.ylabel("Cavity response")
+    plt.grid()
+    plt.show()
+
+    plt.plot((omega_in1_s.T-omega_s).T, r.T, "--",label='Reflectivity')
+    plt.plot((omega_in1_s.T-omega_s).T, t.T, label='Transmissivity')
+    #plt.ylim(-0.1,4.1)
+    plt.xlim([-N/2*zero_order_fsr,+N/2*zero_order_fsr])
+    #plt.xticks(*get_axis_values(omega_in1_s.T-omega_p))
     plt.xlabel("Sideband relative frequency [GHz]")
     plt.ylabel("Cavity response")
     plt.grid()

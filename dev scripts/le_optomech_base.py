@@ -361,7 +361,7 @@ def get_steady_state_field_optomechanical_cavity(delta_s, kappa_ext1_s, kappa_s,
         #test= solution[:, 3]
         num_b_m_le, num_a_s_le, num_a_p_le = np.float64(np.abs(b_m_le)**2), np.float64(np.abs(a_s_le)**2), np.float64(np.abs(a_p_le)**2)
         #print(num_b_m_le[-1]+ num_a_s_le[-1]+ num_a_p_le[-1])
-        if True:
+        if False:
             # You have to check that the time evolution is converging to the steady state
             import matplotlib.pyplot as plt
             fig,ax=plt.subplots(1,2,figsize=(10,5), constrained_layout=True)
@@ -447,7 +447,7 @@ if __name__=="__main__":
     def get_axis_values(values, n=5):
         return np.linspace(min(values), max(values), n), ["%.4f"%(i/1e9) for i in np.linspace(min(values), max(values), n)]
     # Test the analytical model
-    is_sideband_stokes = False
+    is_sideband_stokes = True
     lambda_to_omega = lambda l: 2 * np.pi * 3e8 / l
     kappa_ext1_s = 1e6
     kappa_ext1_p = 2e6
@@ -459,8 +459,15 @@ if __name__=="__main__":
     omega_in1_p = omega_p + (-1 if is_sideband_stokes else 1) * 3e5
     omega_s = omega_p + (-1 if is_sideband_stokes else 1) * 12.0012e9 #+ np.linspace(-8e6, 8e6, 10).reshape(-1,1)
     omega_in1_s = omega_s + (-1 if is_sideband_stokes else 3) * np.linspace(-3e6, 1e6, 401)
-    alpha_p = 7e3*(1 if is_sideband_stokes else 3) #* np.linspace(0,1.2,6).reshape(-1,1)
-    alpha_in1_p = alpha_p * (kappa_p/2+1j*(omega_p-omega_in1_p))/np.sqrt(kappa_ext1_p)
+    consistent_pump_power_inside_cavity = True
+    if consistent_pump_power_inside_cavity:
+        alpha_p = 7e3*(1 if is_sideband_stokes else 3) #* np.linspace(0,1.2,6).reshape(-1,1)
+        alpha_in1_p = alpha_p * (kappa_p/2+1j*(omega_p-omega_in1_p))/np.sqrt(kappa_ext1_p)
+        alpha_in1_p = np.abs(alpha_in1_p)
+    else:
+        power_in1_p = 2.4e-4*(1 if is_sideband_stokes else 3)
+        alpha_in1_p = np.sqrt(power_in1_p / (6.626e-34 *omega_p))        
+        alpha_p = alpha_in1_p * np.sqrt(kappa_ext1_p)/(kappa_p/2+1j*(omega_p-omega_in1_p))
     alpha_in1_s = np.sqrt(kappa_ext1_s)
     G_0 = 100
     Omega_m = 12e9
