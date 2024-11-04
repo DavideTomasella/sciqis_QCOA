@@ -12,6 +12,8 @@ from scipy.optimize import fsolve
 from scipy.integrate import solve_ivp
 from scipy.optimize import minimize
 import time
+import sys
+#sys.stdout = open('output.txt','wt')
 
 counter=0
 def fsolvew(func, x0, t, args=(), **kwargs):
@@ -299,6 +301,15 @@ def get_steady_state_field_optomechanical_cavity(delta_s, kappa_ext1_s, kappa_s,
             dvars_dt_c = np.dot(jacobian, np.append(vars, np.conj(vars))) + constant
             dvars_dt = dvars_dt_c[:3]
             #print(dvars_dt-dvars_dt_c[3:].conjugate())
+        elif False:
+            b_m, a_s, a_p = vars
+            nvars = [b_m, a_s, a_p]
+            dnvars_dt = model_stokes(nvars, t, *args)
+            d_bm, d_as, d_ap = dnvars_dt
+            dn_as = d_as.conjugate()*a_s+a_s.conjugate()*d_as
+            print(t, (d_as.conjugate()*a_s).real, (d_as.conjugate()*a_s).imag)
+            print(t, (d_ap.conjugate()*a_p).real**2+(d_bm.conjugate()*b_m).real**2-(d_as.conjugate()*a_s).real**2)
+            dvars_dt = [d_bm, d_as, d_ap]
         else:
             dvars_dt = model_stokes(vars, t, *args)
         return dvars_dt
@@ -347,6 +358,7 @@ def get_steady_state_field_optomechanical_cavity(delta_s, kappa_ext1_s, kappa_s,
         solution = sol.sol(t).T
         #solution, infodict = odeintw(model, init_fields, t, args=args, full_output=True)
         b_m_le, a_s_le, a_p_le = solution[:, 0], solution[:, 1], solution[:, 2]
+        #test= solution[:, 3]
         num_b_m_le, num_a_s_le, num_a_p_le = np.float64(np.abs(b_m_le)**2), np.float64(np.abs(a_s_le)**2), np.float64(np.abs(a_p_le)**2)
         #print(num_b_m_le[-1]+ num_a_s_le[-1]+ num_a_p_le[-1])
         if True:
@@ -356,6 +368,7 @@ def get_steady_state_field_optomechanical_cavity(delta_s, kappa_ext1_s, kappa_s,
             ax[0].plot(t, num_b_m_le, label='num_b_m')
             ax[0].plot(t, num_a_s_le, label='num_a_s')
             ax[0].plot(0, 0, label='num_a_p')
+            #ax[0].plot(t, test, label='test')
             ax[0].grid()
             #ax[0].set_ylim(min(num_b_m_le[-1000:]), max(num_b_m_le[-1000:]))
             ax[0].set_xlabel('Time [s]')
@@ -395,7 +408,7 @@ def get_steady_state_field_optomechanical_cavity(delta_s, kappa_ext1_s, kappa_s,
             ax2.yaxis.set_label_position('right')
             global counter
             counter+=1
-            plt.savefig("results\le_scan\%03i.png"%counter)
+            #plt.savefig("results\le_scan\%03i.png"%counter)
             plt.show()
             time.sleep(0.1)
             #camera.snap()
@@ -405,7 +418,8 @@ def get_steady_state_field_optomechanical_cavity(delta_s, kappa_ext1_s, kappa_s,
         def model_n(vars, *args):
             #eps=1e-10
             b_m, a_s, a_p = vars[0]+1j*vars[1], vars[2]+1j*vars[3], vars[4]+1j*vars[5]
-            dbm_dt, das_dt, dap_dt = model_ivp(0, [b_m, a_s, a_p], *args)
+            dbm_dt, das_dt, dap_dt = model_stokes([b_m, a_s, a_p],0, *args)
+            #dbm_dt, das_dt, dap_dt = dbm_dt/np.abs(b_m)**2, das_dt/np.abs(a_s)**2, dap_dt/np.abs(a_p)**2
             #bm_dot,as_dot,ap_dot = (b_m.real*dbm_dt.real+b_m.imag*dbm_dt.imag)/(eps+np.abs(b_m)**2), (a_s.real*das_dt.real+a_s.imag*das_dt.imag)/(eps+np.abs(a_s)**2), (a_p.real*dap_dt.real+a_p.imag*dap_dt.imag)/(eps+np.abs(a_p)**2)
             #print("%.2e %.2e %.2e" % (bm_dot, as_dot, ap_dot))
             #print("%.2e %.2e %.2e %.2e %.2e %.2e"%(b_m.real, b_m.imag, a_s.real, a_s.imag, a_p.real, a_p.imag))
