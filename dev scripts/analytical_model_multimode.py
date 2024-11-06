@@ -191,42 +191,66 @@ if __name__ == "__main__":
         return np.linspace(min(values), max(values), n), ["%.4f"%(i/1e9) for i in np.linspace(min(values), max(values), n)]
     # Test the analytical model
     is_sideband_stokes = True
-    lambda_to_omega = lambda l: 2 * np.pi * 3e8 / l
-    kappa_ext1_s = 1e6
+    lambda_to_omega = lambda l: 3e8 / l
+    kappa_ext1_s = 2.5e6
     kappa_ext1_p = 2e6
-    kappa_ext2_s = 1e6
-    kappa_ext2_p = 1e6
-    kappa_s = kappa_ext1_s + kappa_ext2_s + 1e6
-    kappa_p = kappa_ext1_p + kappa_ext2_p + 1e6
-    omega_p = lambda_to_omega(1550e-9)
+    kappa_ext2_s = 5e5
+    kappa_ext2_p = 5e5
+    kappa_s = kappa_ext1_s + kappa_ext2_s + 3e5
+    kappa_p = kappa_ext1_p + kappa_ext2_p + 3e5
+
+    # approximate frequency to calculate the mechanical response
+    omega_lowf = lambda_to_omega(1553.3e-9)
+    omega_highf = omega_lowf + 12.7e9 #+ np.linspace(-8e6, 8e6, 10).reshape(-1,1)
+    omega_s = omega_lowf if is_sideband_stokes else omega_highf
+    omega_p = omega_highf if is_sideband_stokes else omega_lowf
+
+    # mechanical parameters
+    G_0 = 15
+    v_a=6360#m/s
+    v_0=3e8/1.55#m/s
+    Omega_0 = 2 * omega_p * v_a / v_0
+    Omega_m = Omega_0 / (1 + (1 if is_sideband_stokes else -1) * v_a / v_0)
+    gamma_m = 800#Hz
+    
+    # new tuned optical FSR to show some peaks in the cavity response
+    omega_highf = omega_lowf + Omega_0 -10e5
+    omega_s = omega_lowf if is_sideband_stokes else omega_highf
+    omega_p = omega_highf if is_sideband_stokes else omega_lowf
+
+    #multimode: fundamental modes
+    N=3
+    L=1e-2
+    zero_order_fsr = v_a/L #should be 720kHz with pi*v_a/L, but it isn't
+    number_of_oscillations_central_mode = (Omega_m // zero_order_fsr)
+    Omega_m_zeros = Omega_m + zero_order_fsr * np.arange(-np.floor(N/2),np.ceil(N/2))
+    modular_Omega_m_zeros = Omega_m_zeros - number_of_oscillations_central_mode * zero_order_fsr
+    G_0_zeros = G_0*np.sinc(modular_Omega_m_zeros / 2 / zero_order_fsr)**2
+    gamma_m_zeros = gamma_m*np.ones_like(Omega_m_zeros)
+
+    #multimode: high order modes
+    M = 10
+    high_order_fsr = 45e3
+    # data for dx=100um, dy=100um, angX=1mrad, angY=1mrad
+    distribution_highorder_g0 = np.array([55,123,380,485,667,380,342,164,108,32])/4000
+    Omega_m_highorder = np.repeat(Omega_m_zeros,M) + high_order_fsr * np.tile(np.arange(0,M),N)
+    modular_Omega_m_highorder = Omega_m_highorder - number_of_oscillations_central_mode * zero_order_fsr
+    G_0_highorder = G_0 * np.sinc(modular_Omega_m_highorder / 2 / zero_order_fsr)**2\
+                         * np.tile(distribution_highorder_g0, N)
+    gamma_m_highorder = gamma_m*np.ones_like(Omega_m_highorder)
+    
+    print(Omega_m_zeros, G_0_zeros)
+    print(Omega_m_highorder, G_0_highorder)
+    frequency_range_mech_modes = Omega_m * (-1 if is_sideband_stokes else 1) + np.array([-N/2*zero_order_fsr, N/2*zero_order_fsr+M*high_order_fsr])
+
+    # input fields definition
     omega_in1_p = omega_p + (-1 if is_sideband_stokes else 1) * 1e5
-    omega_s = omega_p + (-1 if is_sideband_stokes else 1) * 12.0004e9 #+ np.linspace(-8e6, 8e6, 10).reshape(-1,1)
-    omega_in1_s = omega_s + np.linspace(-6e6, 6e6, 4001)
+    omega_in1_s = omega_s + np.linspace(-4e6, 4e6, 4001)
     power_in1_p = 2.7e-5*(1 if is_sideband_stokes else 3)
-    power_in1_p = 30e-5
+    power_in1_p = 400e-6
     alpha_in1_p = np.sqrt(power_in1_p / (6.626e-34 *omega_p))        
     alpha_p = alpha_in1_p * np.sqrt(kappa_ext1_p)/(kappa_p/2+1j*(omega_p-omega_in1_p))
     #alpha_p = 7e3*(1 if is_sideband_stokes else 3) #* np.linspace(0,1.2,6).reshape(-1,1)
-    G_0 = 15
-    Omega_m = 12e9
-    gamma_m = 1e3
-    zero_order_fsr = 750e3
-    N=3
-    high_order_fsr = 45e3
-    Omega_m_zeros = Omega_m + zero_order_fsr * np.arange(-np.floor(N/2),np.ceil(N/2))
-    norm_detuning_2000mode_vs_Omega_m = 1e3 / zero_order_fsr
-    G_0_zeros = G_0*np.sinc(np.arange(-np.floor(N/2),np.ceil(N/2))/2 +\
-                            norm_detuning_2000mode_vs_Omega_m)**2
-    gamma_m_zeros = gamma_m*np.ones_like(Omega_m_zeros)
-    M = 10
-    Omega_m_highorder = np.repeat(Omega_m_zeros,M) + np.tile(high_order_fsr * np.arange(0,M),N)
-    # data for dx=100um, dy=100um, angX=1mrad, angY=1mrad
-    distribution_highorder_g0 = np.array([55,123,380,485,667,380,342,164,108,32])/4000
-    G_0_highorder = np.repeat(G_0_zeros,M) * np.tile(distribution_highorder_g0,N)
-    gamma_m_highorder = gamma_m*np.ones_like(Omega_m_highorder)
-    print(Omega_m_zeros, G_0_zeros)
-    print(Omega_m_highorder, G_0_highorder)
-    frequency_range_mech_modes = Omega_m * (-1 if is_sideband_stokes else 1) + np.array([-N/2*zero_order_fsr, N/2*zero_order_fsr])
 
     r=reflectivity_ss_sideband(omega_in1_s, kappa_ext1_s, omega_s, kappa_s,
                                 omega_p, alpha_p, G_0_highorder, Omega_m_highorder, gamma_m_highorder,
@@ -242,11 +266,11 @@ if __name__ == "__main__":
 
     plt.xlim(frequency_range_mech_modes)
     plt.xticks(*get_axis_values(frequency_range_mech_modes))
-    #plt.ylim(-0.1,4.1)
+    plt.ylim(-0.1,1.1)
     #plt.xticks(*get_axis_values(omega_in1_s.T-omega_p))
     plt.grid()
     plt.show()
-    omega_s = omega_p + (-1 if is_sideband_stokes else 1) * 12.0002e9 #+ np.linspace(-1e6, 1e6, 3).reshape(-1,1)
+    omega_s = omega_s #+ np.linspace(-1e6, 1e6, 3).reshape(-1,1)
     alpha_p = alpha_p * np.linspace(0,1.2,6).reshape(-1,1,1)
 
     r=reflectivity_ss_sideband(omega_in1_s, kappa_ext1_s, omega_s, kappa_s, 
@@ -258,7 +282,7 @@ if __name__ == "__main__":
 
     plt.plot((omega_in1_s.T-omega_p).T, r.T, "--",label='Reflectivity')
     plt.plot((omega_in1_s.T-omega_p).T, t.T, label='Transmissivity')
-    #plt.ylim(-0.1,4.1)
+    plt.ylim(-0.1,1.1)
     #plt.xlim([-5e6,+5e6])
     #plt.xticks(*get_axis_values(omega_in1_s.T-omega_p))
     plt.xlabel("Sideband relative frequency [GHz]")
@@ -268,10 +292,11 @@ if __name__ == "__main__":
 
     plt.plot((omega_in1_s.T-omega_s).T, r.T, "--",label='Reflectivity')
     plt.plot((omega_in1_s.T-omega_s).T, t.T, label='Transmissivity')
-    #plt.ylim(-0.1,4.1)
-    plt.xlim([-N/2*zero_order_fsr,+N/2*zero_order_fsr])
+    plt.ylim(-0.1,1.1)
+    plt.xlim([-N/2*zero_order_fsr,+N/2*(zero_order_fsr+M*high_order_fsr)])
     #plt.xticks(*get_axis_values(omega_in1_s.T-omega_p))
     plt.xlabel("Sideband relative frequency [GHz]")
     plt.ylabel("Cavity response")
     plt.grid()
     plt.show()
+# %%
