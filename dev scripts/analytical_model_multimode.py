@@ -190,7 +190,7 @@ if __name__ == "__main__":
     def get_axis_values(values, n=5):
         return np.linspace(min(values), max(values), n), ["%.4f"%(i/1e9) for i in np.linspace(min(values), max(values), n)]
     # Test the analytical model
-    is_sideband_stokes = True
+    is_sideband_stokes = False
     lambda_to_omega = lambda l: 3e8 / l
     kappa_ext1_s = 2.5e6
     kappa_ext1_p = 2e6
@@ -200,7 +200,7 @@ if __name__ == "__main__":
     kappa_p = kappa_ext1_p + kappa_ext2_p + 3e5
 
     # approximate frequency to calculate the mechanical response
-    omega_lowf = lambda_to_omega(1553.3e-9)
+    omega_lowf = lambda_to_omega(1553.26e-9) # NOTE this is the mode frequency for the optical cavity
     omega_highf = omega_lowf + 12.7e9 #+ np.linspace(-8e6, 8e6, 10).reshape(-1,1)
     omega_s = omega_lowf if is_sideband_stokes else omega_highf
     omega_p = omega_highf if is_sideband_stokes else omega_lowf
@@ -214,16 +214,16 @@ if __name__ == "__main__":
     gamma_m = 800#Hz
     
     # new tuned optical FSR to show some peaks in the cavity response
-    omega_highf = omega_lowf + Omega_0 -10e5
+    omega_highf = omega_lowf + Omega_m - 1e6 # NOTE this is the tuning of the FSR
     omega_s = omega_lowf if is_sideband_stokes else omega_highf
     omega_p = omega_highf if is_sideband_stokes else omega_lowf
 
     #multimode: fundamental modes
     N=3
     L=1e-2
-    zero_order_fsr = v_a/L #should be 720kHz with pi*v_a/L, but it isn't
+    zero_order_fsr = 650e3 #should be 650-700kHz with pi*v_a/L or v_a/L/2 ???, but it isn't
     number_of_oscillations_central_mode = (Omega_m // zero_order_fsr)
-    Omega_m_zeros = Omega_m + zero_order_fsr * np.arange(-np.floor(N/2),np.ceil(N/2))
+    Omega_m_zeros = Omega_m + zero_order_fsr * np.arange(np.floor(-N/2),np.floor(N/2))
     modular_Omega_m_zeros = Omega_m_zeros - number_of_oscillations_central_mode * zero_order_fsr
     G_0_zeros = G_0*np.sinc(modular_Omega_m_zeros / 2 / zero_order_fsr)**2
     gamma_m_zeros = gamma_m*np.ones_like(Omega_m_zeros)
@@ -239,15 +239,16 @@ if __name__ == "__main__":
                          * np.tile(distribution_highorder_g0, N)
     gamma_m_highorder = gamma_m*np.ones_like(Omega_m_highorder)
     
-    print(Omega_m_zeros, G_0_zeros)
-    print(Omega_m_highorder, G_0_highorder)
+    #print(Omega_m_zeros, G_0_zeros)
+    #print(Omega_m_highorder, G_0_highorder)
     frequency_range_mech_modes = Omega_m * (-1 if is_sideband_stokes else 1) + np.array([-N/2*zero_order_fsr, N/2*zero_order_fsr+M*high_order_fsr])
 
     # input fields definition
+    #omega_s = omega_p + (-1 if is_sideband_stokes else 1) * Omega_m_zeros[np.floor(N/2).astype(int)]
     omega_in1_p = omega_p + (-1 if is_sideband_stokes else 1) * 1e5
-    omega_in1_s = omega_s + np.linspace(-4e6, 4e6, 4001)
+    omega_in1_s = omega_s + np.linspace(-4e6, 4e6, 8001)
     power_in1_p = 2.7e-5*(1 if is_sideband_stokes else 3)
-    power_in1_p = 400e-6
+    power_in1_p = 80e-6
     alpha_in1_p = np.sqrt(power_in1_p / (6.626e-34 *omega_p))        
     alpha_p = alpha_in1_p * np.sqrt(kappa_ext1_p)/(kappa_p/2+1j*(omega_p-omega_in1_p))
     #alpha_p = 7e3*(1 if is_sideband_stokes else 3) #* np.linspace(0,1.2,6).reshape(-1,1)
